@@ -6,12 +6,15 @@
 const Storage = (() => {
   const KEYS = {
     RECENT_CITIES: 'skycast_recent_cities',
+    FAVORITES: 'skycast_favorites',
     THEME: 'skycast_theme',
     UNIT: 'skycast_unit',
-    LAST_CITY: 'skycast_last_city'
+    LAST_CITY: 'skycast_last_city',
+    OFFLINE_DATA: 'skycast_offline'
   };
 
   const MAX_RECENT = 10;
+  const MAX_FAVORITES = 20;
 
   /**
    * Saves list of recent cities to localStorage
@@ -154,6 +157,40 @@ const Storage = (() => {
     }
   };
 
+  // --- Favorites ---
+  const getFavorites = () => {
+    try {
+      return JSON.parse(localStorage.getItem(KEYS.FAVORITES)) || [];
+    } catch { return []; }
+  };
+
+  const saveFavorites = (list) => {
+    try { localStorage.setItem(KEYS.FAVORITES, JSON.stringify(list)); } catch {}
+  };
+
+  const addFavorite = (name) => {
+    const list = getFavorites();
+    if (list.some(c => c.toLowerCase() === name.toLowerCase())) return;
+    list.unshift(name);
+    if (list.length > MAX_FAVORITES) list.pop();
+    saveFavorites(list);
+  };
+
+  const removeFavorite = (name) => {
+    saveFavorites(getFavorites().filter(c => c.toLowerCase() !== name.toLowerCase()));
+  };
+
+  const isFavorite = (name) => getFavorites().some(c => c.toLowerCase() === name.toLowerCase());
+
+  // --- Offline Cache ---
+  const saveOfflineData = (data) => {
+    try { localStorage.setItem(KEYS.OFFLINE_DATA, JSON.stringify(data)); } catch {}
+  };
+
+  const getOfflineData = () => {
+    try { return JSON.parse(localStorage.getItem(KEYS.OFFLINE_DATA)); } catch { return null; }
+  };
+
   return {
     saveRecentCities,
     getRecentCities,
@@ -165,6 +202,13 @@ const Storage = (() => {
     saveUnit,
     getUnit,
     saveLastCity,
-    getLastCity
+    getLastCity,
+    getFavorites,
+    saveFavorites,
+    addFavorite,
+    removeFavorite,
+    isFavorite,
+    saveOfflineData,
+    getOfflineData
   };
 })();

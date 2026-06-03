@@ -13,17 +13,24 @@
 </head>
 <body>
 
-  <!-- Toast -->
+  <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
   <div class="app-container">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <h2 class="sidebar-title">Recent Cities</h2>
+        <h2 class="sidebar-title">Cities</h2>
         <button class="sidebar-close" id="sidebarClose" aria-label="Close sidebar">&times;</button>
       </div>
-      <ul class="recent-list" id="recentList"></ul>
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" data-tab="recent">Recent</button>
+        <button class="sidebar-tab" data-tab="favorites">Favorites</button>
+      </div>
+      <div class="sidebar-content">
+        <ul class="recent-list" id="recentList"></ul>
+        <ul class="fav-list" id="favList"></ul>
+      </div>
       <div class="sidebar-footer">
         <p>SkyCast &copy; 2026</p>
       </div>
@@ -43,7 +50,7 @@
           </h1>
         </div>
         <div class="header-center">
-          <div class="search-wrapper">
+          <div class="search-wrapper" id="searchWrapper">
             <form class="search-form" id="searchForm">
               <input
                 type="text"
@@ -58,6 +65,7 @@
                 </svg>
               </button>
             </form>
+            <div class="suggestions" id="suggestions"></div>
           </div>
         </div>
         <div class="header-right">
@@ -70,14 +78,22 @@
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
           </button>
-          <button class="unit-toggle" id="unitToggle" aria-label="Toggle temperature unit">&deg;C</button>
+          <button class="unit-toggle" id="unitToggle" aria-label="Toggle unit">&deg;C</button>
         </div>
       </header>
 
       <div class="overlay" id="overlay"></div>
 
-      <!-- Content Area -->
+      <!-- Content -->
       <div class="content" id="content">
+
+        <!-- Location Banner -->
+        <div class="location-banner" id="locationBanner" style="display:none;">
+          <span class="location-dot"></span>
+          <span class="location-text" id="locationText">Using your current location</span>
+          <button class="location-change" id="locationChange">Change</button>
+        </div>
+
         <!-- Loading Skeleton -->
         <div class="loading-container" id="loadingContainer">
           <div class="skeleton-current skeleton-pulse">
@@ -102,7 +118,7 @@
           <p class="loading-text">Fetching your forecast...</p>
         </div>
 
-        <!-- Error Display -->
+        <!-- Error -->
         <div class="error-container" id="errorContainer">
           <div class="error-icon">&#x26A0;</div>
           <p class="error-message" id="errorMessage">Something went wrong.</p>
@@ -112,14 +128,47 @@
         <!-- Weather Dashboard -->
         <div class="weather-dashboard" id="weatherDashboard" style="display:none;">
 
-          <!-- Current Weather Card -->
+          <!-- Mini Dashboard Cards Row -->
+          <div class="dashboard-cards" id="dashboardCards">
+            <div class="dash-card glass dash-temp">
+              <span class="dash-icon">&#x1F321;</span>
+              <span class="dash-label">Temperature</span>
+              <span class="dash-value" id="dashTemp">--</span>
+            </div>
+            <div class="dash-card glass dash-wind">
+              <span class="dash-icon">&#x1F4A8;</span>
+              <span class="dash-label">Wind</span>
+              <span class="dash-value" id="dashWind">--</span>
+            </div>
+            <div class="dash-card glass dash-humidity">
+              <span class="dash-icon">&#x1F4A7;</span>
+              <span class="dash-label">Humidity</span>
+              <span class="dash-value" id="dashHumidity">--</span>
+            </div>
+            <div class="dash-card glass dash-uv">
+              <span class="dash-icon">&#x2600;</span>
+              <span class="dash-label">UV Index</span>
+              <span class="dash-value" id="dashUv">--</span>
+            </div>
+            <div class="dash-card glass dash-pressure">
+              <span class="dash-icon">&#x1F4CB;</span>
+              <span class="dash-label">Pressure</span>
+              <span class="dash-value" id="dashPressure">--</span>
+            </div>
+          </div>
+
+          <!-- Current Weather Big Card -->
           <div class="current-weather glass" id="currentWeather">
             <div class="current-weather-bg" id="weatherBg"></div>
             <div class="current-weather-content">
               <div class="current-weather-primary">
                 <div class="city-info">
-                  <h2 class="city-name" id="cityName">--</h2>
+                  <div class="city-name-row">
+                    <h2 class="city-name" id="cityName">--</h2>
+                    <button class="fav-btn" id="favBtn" aria-label="Toggle favorite">&#x2606;</button>
+                  </div>
                   <p class="city-date" id="currentDate">--</p>
+                  <p class="city-live-time" id="liveTime"></p>
                   <p class="friendly-condition" id="friendlyCondition"></p>
                 </div>
                 <div class="temp-info">
@@ -154,6 +203,13 @@
             </div>
           </div>
 
+          <!-- Mini Map -->
+          <div class="map-section">
+            <div class="map-container glass" id="mapContainer">
+              <img src="" alt="Map" class="map-image" id="mapImage" />
+            </div>
+          </div>
+
           <!-- Hourly Forecast -->
           <div class="hourly-section">
             <h3 class="section-title">Hourly Forecast</h3>
@@ -162,7 +218,7 @@
             </div>
           </div>
 
-          <!-- Weather Highlights -->
+          <!-- Highlights -->
           <div class="highlights-section">
             <h3 class="section-title">Today's Highlights</h3>
             <div class="highlights-grid" id="highlightsGrid">
@@ -188,13 +244,13 @@
               </div>
               <div class="highlight-card glass">
                 <span class="highlight-icon">&#x1F4A8;</span>
-                <span class="highlight-label">Pressure</span>
-                <span class="highlight-value" id="pressure">--</span>
+                <span class="highlight-label">Wind Dir</span>
+                <span class="highlight-value" id="windDirection">--</span>
               </div>
               <div class="highlight-card glass">
-                <span class="highlight-icon">&#x1F32A;</span>
-                <span class="highlight-label">Wind Direction</span>
-                <span class="highlight-value" id="windDirection">--</span>
+                <span class="highlight-icon">&#x1F30D;</span>
+                <span class="highlight-label">Visibility</span>
+                <span class="highlight-value" id="visibility">--</span>
               </div>
             </div>
           </div>
@@ -207,9 +263,25 @@
         </div>
       </div>
 
-      <footer class="footer">
-        <p>Powered by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> &bull; <a href="https://openweathermap.org/" target="_blank" rel="noopener">Weather Icons by OWM</a></p>
-      </footer>
+      <!-- Bottom Navigation (Mobile) -->
+      <nav class="bottom-nav" id="bottomNav">
+        <button class="nav-item active" data-view="home">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span>Home</span>
+        </button>
+        <button class="nav-item" data-view="search" id="navSearch">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span>Search</span>
+        </button>
+        <button class="nav-item" data-view="favorites" id="navFavs">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>Favorites</span>
+        </button>
+        <button class="nav-item" data-view="settings" id="navSettings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <span>Settings</span>
+        </button>
+      </nav>
     </main>
   </div>
 

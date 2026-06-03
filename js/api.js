@@ -228,6 +228,53 @@ const API = (() => {
     };
   };
 
+  /**
+   * Search cities for autocomplete suggestions
+   */
+  const searchCities = async (query) => {
+    if (!query || query.length < 2) return [];
+    const url = `${GEO_URL}/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      return (data.results || []).map(r => ({
+        name: r.name,
+        country: r.country,
+        admin: r.admin1 || ''
+      }));
+    } catch {
+      return [];
+    }
+  };
+
+  /**
+   * Generate a funny error message
+   */
+  const getFunnyError = (type) => {
+    const messages = {
+      not_found: [
+        "Oops! That city seems to have vanished \uD83C\uDF0D",
+        "We checked every map — couldn't find that one \uD83D\uDD0D",
+        "Did you spell it right? Even we're confused \uD83E\uDD14",
+        "That city must be shy, it's hiding from us \uD83D\uDE35\u200D\uD83D\uDCAB",
+        "Plot twist: that city doesn't exist \uD83C\uDFAD"
+      ],
+      network: [
+        "Our weather satellites are taking a nap \uD83D\uDE34",
+        "Lost connection to the clouds \u2601\uFE0F\u200D\uD83D\uDCA8",
+        "The internet gnomes are on strike again \uD83E\uDDDC\u200D\u2642\uFE0F",
+        "Can't reach the weather servers right now \uD83D\uDCF6"
+      ],
+      empty: [
+        "Type a city name first, then we'll talk weather \uD83D\uDE09",
+        "I need a city to work with! \uD83C\uDFD9\uFE0F",
+        "Search bar isn't for decoration — type something! \uD83D\uDE43"
+      ]
+    };
+    const pool = messages[type] || messages.not_found;
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+
   return {
     getCurrentWeather,
     getCurrentWeatherByCoords,
@@ -235,6 +282,8 @@ const API = (() => {
     getForecastByCoords,
     getWeatherInfo,
     getFriendlyCondition,
-    fetchWeatherData
+    fetchWeatherData,
+    searchCities,
+    getFunnyError
   };
 })();

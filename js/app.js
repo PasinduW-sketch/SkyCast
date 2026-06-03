@@ -1,6 +1,5 @@
 /**
  * SkyCast - Main Application Module
- * Handles all UI rendering, event handling, and state management
  */
 
 const App = (() => {
@@ -10,8 +9,11 @@ const App = (() => {
     hamburger: document.getElementById('hamburger'),
     overlay: document.getElementById('overlay'),
     recentList: document.getElementById('recentList'),
+    favList: document.getElementById('favList'),
+    sidebarTabs: document.querySelectorAll('.sidebar-tab'),
     searchForm: document.getElementById('searchForm'),
     searchInput: document.getElementById('searchInput'),
+    suggestions: document.getElementById('suggestions'),
     themeToggle: document.getElementById('themeToggle'),
     unitToggle: document.getElementById('unitToggle'),
     datetime: document.getElementById('datetime'),
@@ -22,6 +24,7 @@ const App = (() => {
     weatherDashboard: document.getElementById('weatherDashboard'),
     cityName: document.getElementById('cityName'),
     currentDate: document.getElementById('currentDate'),
+    liveTime: document.getElementById('liveTime'),
     friendlyCondition: document.getElementById('friendlyCondition'),
     currentTemp: document.getElementById('currentTemp'),
     tempUnitDisplay: document.querySelectorAll('.temp-unit'),
@@ -32,15 +35,28 @@ const App = (() => {
     humidity: document.getElementById('humidity'),
     windSpeed: document.getElementById('windSpeed'),
     cloudCover: document.getElementById('cloudCover'),
+    favBtn: document.getElementById('favBtn'),
     forecastCards: document.getElementById('forecastCards'),
     hourlyCards: document.getElementById('hourlyCards'),
     uvIndex: document.getElementById('uvIndex'),
     sunrise: document.getElementById('sunrise'),
     sunset: document.getElementById('sunset'),
     rainChance: document.getElementById('rainChance'),
-    pressure: document.getElementById('pressure'),
     windDirection: document.getElementById('windDirection'),
-    toastContainer: document.getElementById('toastContainer')
+    visibility: document.getElementById('visibility'),
+    dashTemp: document.getElementById('dashTemp'),
+    dashWind: document.getElementById('dashWind'),
+    dashHumidity: document.getElementById('dashHumidity'),
+    dashUv: document.getElementById('dashUv'),
+    dashPressure: document.getElementById('dashPressure'),
+    mapImage: document.getElementById('mapImage'),
+    locationBanner: document.getElementById('locationBanner'),
+    locationText: document.getElementById('locationText'),
+    locationChange: document.getElementById('locationChange'),
+    toastContainer: document.getElementById('toastContainer'),
+    navItems: document.querySelectorAll('.nav-item'),
+    navSearch: document.getElementById('navSearch'),
+    navFavs: document.getElementById('navFavs')
   };
 
   let state = {
@@ -49,7 +65,11 @@ const App = (() => {
     weatherData: null,
     forecastData: null,
     autoRefreshInterval: null,
-    isFetching: false
+    isFetching: false,
+    isGeolocation: false,
+    coords: null,
+    timezone: 'auto',
+    suggestionsTimer: null
   };
 
   const init = () => {
@@ -58,7 +78,7 @@ const App = (() => {
     setupEventListeners();
     updateDateTime();
     setInterval(updateDateTime, 1000);
-    renderRecentCities();
+    renderSidebar();
 
     if (state.currentCity) {
       fetchWeatherByCity(state.currentCity);
@@ -77,7 +97,7 @@ const App = (() => {
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     Storage.saveTheme(next);
-    showToast(next === 'dark' ? 'Dark mode activated' : 'Light mode activated', 'success');
+    showToast(next === 'dark' ? 'Dark mode \uD83C\uDF19' : 'Light mode \u2600\uFE0F', 'success');
   };
 
   const loadUnit = () => {
@@ -102,30 +122,57 @@ const App = (() => {
 
   const updateDateTime = () => {
     const now = new Date();
-    const options = {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    };
-    elements.datetime.textContent = now.toLocaleDateString('en-US', options);
+    elements.datetime.textContent = now.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
   };
 
   const setupEventListeners = () => {
     elements.searchForm.addEventListener('submit', handleSearch);
+    elements.searchInput.addEventListener('input', handleSuggestions);
+    elements.searchInput.addEventListener('blur', () => setTimeout(() => hideSuggestions(), 200));
+    elements.searchInput.addEventListener('focus', () => { if (elements.suggestions.children.length) showSuggestions(); });
     elements.hamburger.addEventListener('click', openSidebar);
     elements.sidebarClose.addEventListener('click', closeSidebar);
     elements.overlay.addEventListener('click', closeSidebar);
     elements.themeToggle.addEventListener('click', toggleTheme);
     elements.unitToggle.addEventListener('click', toggleUnit);
+    elements.favBtn.addEventListener('click', toggleFavorite);
+    elements.locationChange.addEventListener('click', () => { state.isGeolocation = false; hideLocationBanner(); });
     elements.errorRetry.addEventListener('click', () => {
-      if (state.currentCity) {
-        fetchWeatherByCity(state.currentCity);
-      } else {
-        detectLocation();
-      }
+      state.currentCity ? fetchWeatherByCity(state.currentCity) : detectLocation();
     });
+
+    elements.sidebarTabs.forEach(tab => {
+      tab.addEventListener('click', () => switchSidebarTab(tab.dataset.tab));
+    });
+
+    elements.navItems.forEach(item => {
+      item.addEventListener('click', () => handleNav(item.dataset.view));
+    });
+
+    elements.navSearch.addEventListener('click', () => {
+      elements.searchInput.focus();
+    });
+  };
+
+  const handleNav = (view) => {
+    elements.navItems.forEach(n => n.classList.remove('active'));
+    elements.navItems.forEach(n => { if (n.dataset.view === view) n.classList.add('active'); });
+    if (view === 'search') {
+      elements.searchInput.focus();
+    } else if (view === 'favorites') {
+      openSidebar();
+      switchSidebarTab('favorites');
+    }
+  };
+
+  const switchSidebarTab = (tab) => {
+    elements.sidebarTabs.forEach(t => t.classList.remove('active'));
+    elements.sidebarTabs.forEach(t => { if (t.dataset.tab === tab) t.classList.add('active'); });
+    elements.recentList.classList.toggle('active', tab === 'recent');
+    elements.favList.classList.toggle('active', tab === 'favorites');
   };
 
   const openSidebar = () => {
@@ -144,53 +191,89 @@ const App = (() => {
     e.preventDefault();
     const city = elements.searchInput.value.trim();
     if (!city) {
-      showError('Please enter a city name to search');
+      showError(API.getFunnyError('empty'));
       return;
     }
+    hideSuggestions();
     state.currentCity = city;
+    state.isGeolocation = false;
+    hideLocationBanner();
     Storage.saveLastCity(city);
     fetchWeatherByCity(city);
     elements.searchInput.blur();
   };
 
+  const handleSuggestions = () => {
+    clearTimeout(state.suggestionsTimer);
+    const q = elements.searchInput.value.trim();
+    if (q.length < 2) { hideSuggestions(); return; }
+    state.suggestionsTimer = setTimeout(async () => {
+      const results = await API.searchCities(q);
+      renderSuggestions(results);
+    }, 300);
+  };
+
+  const renderSuggestions = (results) => {
+    elements.suggestions.innerHTML = '';
+    if (!results.length) { hideSuggestions(); return; }
+    results.forEach(r => {
+      const div = document.createElement('div');
+      div.className = 'suggestion-item';
+      div.innerHTML = `${r.name}${r.admin ? ', ' + r.admin : ''}<div class="suggestion-meta">${r.country}</div>`;
+      div.addEventListener('click', () => {
+        elements.searchInput.value = r.name;
+        hideSuggestions();
+        handleSearch(new Event('submit'));
+      });
+      elements.suggestions.appendChild(div);
+    });
+    showSuggestions();
+  };
+
+  const showSuggestions = () => elements.suggestions.classList.add('active');
+  const hideSuggestions = () => elements.suggestions.classList.remove('active');
+
   const detectLocation = () => {
     if (!navigator.geolocation) {
-      if (state.currentCity) {
-        fetchWeatherByCity(state.currentCity);
-      }
+      if (state.currentCity) fetchWeatherByCity(state.currentCity);
       return;
     }
-
     showLoading();
-
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
-          const { latitude, longitude } = position.coords;
-          const weatherData = await API.getCurrentWeatherByCoords(latitude, longitude, state.unit);
-          const forecastData = await API.getForecastByCoords(latitude, longitude, state.unit);
+          state.coords = { lat: position.coords.latitude, lon: position.coords.longitude };
+          const weatherData = await API.getCurrentWeatherByCoords(state.coords.lat, state.coords.lon, state.unit);
+          const forecastData = await API.getForecastByCoords(state.coords.lat, state.coords.lon, state.unit);
           state.currentCity = weatherData.name;
+          state.isGeolocation = true;
           Storage.saveLastCity(weatherData.name);
           renderWeather(weatherData, forecastData);
+          showLocationBanner(weatherData.name);
         } catch (err) {
           showError(err.message);
         }
       },
       () => {
-        if (state.currentCity) {
-          fetchWeatherByCity(state.currentCity);
-        } else {
-          fetchWeatherByCity('London');
-        }
+        if (state.currentCity) fetchWeatherByCity(state.currentCity);
+        else fetchWeatherByCity('London');
       },
       { timeout: 10000, enableHighAccuracy: false }
     );
   };
 
+  const showLocationBanner = (city) => {
+    elements.locationText.textContent = `Using your location: ${city}`;
+    elements.locationBanner.style.display = 'flex';
+  };
+
+  const hideLocationBanner = () => {
+    elements.locationBanner.style.display = 'none';
+  };
+
   const fetchWeatherByCity = async (city) => {
     if (state.isFetching) return;
     state.isFetching = true;
-
     showLoading();
     hideError();
 
@@ -201,19 +284,23 @@ const App = (() => {
       ]);
 
       state.currentCity = weatherData.name;
+      state.timezone = weatherData.timezone || 'auto';
       Storage.saveLastCity(weatherData.name);
-      Storage.addRecentCity(
-        weatherData.name,
-        Math.round(weatherData.main.temp),
-        weatherData.weather[0].icon
-      );
+      Storage.addRecentCity(weatherData.name, Math.round(weatherData.main.temp), weatherData.weather[0].icon);
+      Storage.saveOfflineData({ weather: weatherData, forecast: forecastData });
 
       renderWeather(weatherData, forecastData);
-      renderRecentCities();
+      renderSidebar();
       startAutoRefresh();
     } catch (err) {
-      showError(err.message);
-      showToast(err.message, 'error');
+      const offline = Storage.getOfflineData();
+      if (offline && state.currentCity) {
+        showToast('Offline: showing last saved data', 'error');
+        renderWeather(offline.weather, offline.forecast);
+      } else {
+        showError(err.message);
+        showToast(err.message, 'error');
+      }
     } finally {
       state.isFetching = false;
     }
@@ -222,6 +309,7 @@ const App = (() => {
   const renderWeather = (weatherData, forecastData) => {
     state.weatherData = weatherData;
     state.forecastData = forecastData;
+    state.timezone = weatherData.timezone || 'auto';
 
     hideLoading();
     hideError();
@@ -235,10 +323,8 @@ const App = (() => {
     const unitSymbol = state.unit === 'metric' ? '\u00B0C' : '\u00B0F';
     const speedUnit = state.unit === 'metric' ? 'm/s' : 'mph';
 
-    const country = weatherData.country || weatherData.sys?.country || '';
-    elements.cityName.textContent = country
-      ? `${weatherData.name}, ${country}`
-      : weatherData.name;
+    const country = weatherData.sys?.country || weatherData.country || '';
+    elements.cityName.textContent = country ? `${weatherData.name}, ${country}` : weatherData.name;
     elements.currentDate.textContent = formatDate(new Date());
     elements.currentTemp.textContent = Math.round(main.temp);
     elements.weatherCondition.textContent = weather.description;
@@ -247,108 +333,89 @@ const App = (() => {
     elements.feelsLike.textContent = `${Math.round(main.feels_like)}${unitSymbol}`;
     elements.humidity.textContent = `${main.humidity}%`;
     elements.windSpeed.textContent = `${Math.round(wind.speed)} ${speedUnit}`;
-    elements.cloudCover.textContent = weatherData.clouds?.all !== undefined
-      ? `${weatherData.clouds.all}%` : '--';
+    elements.cloudCover.textContent = weatherData.clouds?.all !== undefined ? `${weatherData.clouds.all}%` : '--';
 
     elements.weatherIcon.src = `https://openweathermap.org/img/wn/${weather.icon}@4x.png`;
     elements.weatherIcon.alt = weather.description;
+
+    // Favorite button
+    updateFavBtn();
+
+    // Dashboard mini cards
+    elements.dashTemp.textContent = `${Math.round(main.temp)}${unitSymbol}`;
+    elements.dashWind.textContent = `${Math.round(wind.speed)} ${speedUnit}`;
+    elements.dashHumidity.textContent = `${main.humidity}%`;
+    if (forecastData.daily && forecastData.daily.uv_index_max) {
+      elements.dashUv.textContent = Math.round(forecastData.daily.uv_index_max[0] * 10) / 10;
+    }
+
+    // Map
+    if (weatherData.coord) {
+      const { lat, lon } = weatherData.coord;
+      elements.mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=10&size=600x250&markers=${lat},${lon}`;
+      elements.mapImage.alt = `Map of ${weatherData.name}`;
+    }
 
     setWeatherBackground(weather.icon, weather.main);
     renderForecast(forecastData);
     renderHourly(forecastData);
     renderHighlights(weatherData, forecastData);
+    startLiveTime();
     updateDateTime();
   };
 
   const renderForecast = (forecastData) => {
-    const dailyData = processForecast(forecastData.daily);
+    const daily = forecastData.daily;
     elements.forecastCards.innerHTML = '';
+    if (!daily || !daily.time) return;
+    const today = new Date().toLocaleDateString('en-US');
 
-    dailyData.forEach(day => {
+    daily.time.forEach((dateStr, i) => {
+      const date = new Date(dateStr + 'T12:00:00');
+      if (date.toLocaleDateString('en-US') === today) return;
+      if (i > 5) return;
+      const weather = API.getWeatherInfo(daily.weathercode[i]);
       const card = document.createElement('div');
       card.className = 'forecast-card glass';
       const unitSymbol = state.unit === 'metric' ? '\u00B0C' : '\u00B0F';
-
       card.innerHTML = `
-        <div class="forecast-day">${day.day}</div>
-        <img class="forecast-icon" src="https://openweathermap.org/img/wn/${day.icon}@2x.png" alt="${day.condition}" loading="lazy" />
-        <div class="forecast-temp">${Math.round(day.temp)}${unitSymbol}</div>
-        <div class="forecast-temp-range">H:${Math.round(day.tempMax)}${unitSymbol} L:${Math.round(day.tempMin)}${unitSymbol}</div>
-        <div class="forecast-condition">${day.condition}</div>
+        <div class="forecast-day">${date.toLocaleDateString('en-US', { weekday: 'long' })}</div>
+        <img class="forecast-icon" src="https://openweathermap.org/img/wn/${weather.icon}@2x.png" alt="${weather.desc}" loading="lazy" />
+        <div class="forecast-temp">${Math.round((daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2)}${unitSymbol}</div>
+        <div class="forecast-temp-range">H:${Math.round(daily.temperature_2m_max[i])}${unitSymbol} L:${Math.round(daily.temperature_2m_min[i])}${unitSymbol}</div>
+        <div class="forecast-condition">${weather.desc}</div>
       `;
-
       elements.forecastCards.appendChild(card);
     });
   };
 
-  const processForecast = (daily) => {
-    if (!daily || !daily.time) return [];
-    const today = new Date().toLocaleDateString('en-US');
-
-    return daily.time
-      .map((dateStr, i) => {
-        const date = new Date(dateStr + 'T12:00:00');
-        const dateKey = date.toLocaleDateString('en-US');
-        const weather = API.getWeatherInfo(daily.weathercode[i]);
-        return {
-          day: date.toLocaleDateString('en-US', { weekday: 'long' }),
-          temp: (daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2,
-          tempMax: daily.temperature_2m_max[i],
-          tempMin: daily.temperature_2m_min[i],
-          icon: weather.icon,
-          condition: weather.desc,
-          dateKey
-        };
-      })
-      .filter(d => d.dateKey !== today)
-      .slice(0, 5);
-  };
-
   const renderHourly = (forecastData) => {
     const hourly = forecastData.hourly;
+    elements.hourlyCards.innerHTML = '';
     if (!hourly || !hourly.time) return;
 
-    elements.hourlyCards.innerHTML = '';
     const now = new Date();
-    const currentHour = now.getHours();
-    const todayStr = now.toLocaleDateString('en-US');
-
     let count = 0;
 
     hourly.time.forEach((timeStr, i) => {
-      const date = new Date(timeStr);
-      const hour = date.getHours();
-      const dateKey = date.toLocaleDateString('en-US');
-      const hoursFromNow = Math.round((date - now) / (1000 * 60 * 60));
-
-      if (hoursFromNow < 0 && dateKey === todayStr) return;
-
       if (count >= 12) return;
+      const date = new Date(timeStr);
+      const hoursFromNow = Math.round((date - now) / (1000 * 60 * 60));
+      if (hoursFromNow < -1) return;
 
       const weather = API.getWeatherInfo(hourly.weathercode[i]);
-      const isActive = hoursFromNow === 0 || (hoursFromNow < 1 && hoursFromNow >= 0);
+      const isActive = hoursFromNow <= 0;
 
       const card = document.createElement('div');
       card.className = `hourly-card${isActive ? ' active' : ''}`;
-
-      let timeLabel;
-      if (hoursFromNow <= 0 && dateKey === todayStr) {
-        timeLabel = 'Now';
-      } else if (dateKey !== todayStr) {
-        timeLabel = date.toLocaleDateString('en-US', { weekday: 'short', hour: 'numeric' });
-      } else {
-        timeLabel = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
-      }
-
+      let timeLabel = hoursFromNow <= 0 ? 'Now' : date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
       const rain = hourly.precipitation_probability?.[i];
-
       card.innerHTML = `
         <div class="hourly-time">${timeLabel}</div>
         <img class="hourly-icon" src="https://openweathermap.org/img/wn/${weather.icon}.png" alt="${weather.desc}" loading="lazy" />
         <div class="hourly-temp">${Math.round(hourly.temperature_2m[i])}\u00B0</div>
         ${rain !== undefined ? `<div class="hourly-rain">${rain}%</div>` : ''}
       `;
-
       elements.hourlyCards.appendChild(card);
       count++;
     });
@@ -362,119 +429,140 @@ const App = (() => {
     if (daily && daily.uv_index_max) {
       const uv = Math.round(daily.uv_index_max[0] * 10) / 10;
       elements.uvIndex.textContent = uv;
-      elements.uvIndex.title = uv >= 8 ? 'Very high' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
+      elements.dashPressure.textContent = uv;
     }
-
-    if (daily && daily.sunrise) {
-      const time = new Date(daily.sunrise[0]);
-      elements.sunrise.textContent = time.toLocaleTimeString('en-US', {
-        hour: 'numeric', minute: '2-digit', hour12: true
-      });
-    }
-
-    if (daily && daily.sunset) {
-      const time = new Date(daily.sunset[0]);
-      elements.sunset.textContent = time.toLocaleTimeString('en-US', {
-        hour: 'numeric', minute: '2-digit', hour12: true
-      });
-    }
-
-    if (daily && daily.precipitation_probability_max) {
-      elements.rainChance.textContent = `${daily.precipitation_probability_max[0]}%`;
-    }
-
+    if (daily && daily.sunrise) elements.sunrise.textContent = new Date(daily.sunrise[0]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    if (daily && daily.sunset) elements.sunset.textContent = new Date(daily.sunset[0]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    if (daily && daily.precipitation_probability_max) elements.rainChance.textContent = `${daily.precipitation_probability_max[0]}%`;
     if (main && main.pressure) {
+      elements.dashPressure.textContent = `${Math.round(main.pressure)} hPa`;
       elements.pressure.textContent = `${Math.round(main.pressure)} hPa`;
     }
-
-    if (wind && wind.deg !== undefined) {
-      elements.windDirection.textContent = getWindDirection(wind.deg);
-    }
+    if (wind && wind.deg !== undefined) elements.windDirection.textContent = getWindDirection(wind.deg);
+    elements.visibility.textContent = '\u2014';
   };
 
   const getWindDirection = (deg) => {
-    const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
-                  'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
     return dirs[Math.round(deg / 22.5) % 16];
+  };
+
+  const startLiveTime = () => {
+    const update = () => {
+      const now = new Date();
+      elements.liveTime.textContent = now.toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+        timeZone: state.timezone !== 'auto' ? state.timezone : undefined
+      });
+    };
+    update();
+    if (state._liveTimer) clearInterval(state._liveTimer);
+    state._liveTimer = setInterval(update, 1000);
+  };
+
+  const toggleFavorite = () => {
+    const name = state.currentCity;
+    if (!name) return;
+    if (Storage.isFavorite(name)) {
+      Storage.removeFavorite(name);
+      showToast(`Removed ${name} from favorites`, 'success');
+    } else {
+      Storage.addFavorite(name);
+      showToast(`Added ${name} to favorites \u2B50`, 'success');
+      elements.favBtn.classList.add('pop');
+      setTimeout(() => elements.favBtn.classList.remove('pop'), 400);
+    }
+    updateFavBtn();
+    renderSidebar();
+  };
+
+  const updateFavBtn = () => {
+    if (state.currentCity && Storage.isFavorite(state.currentCity)) {
+      elements.favBtn.classList.add('active');
+      elements.favBtn.innerHTML = '\u2605';
+    } else {
+      elements.favBtn.classList.remove('active');
+      elements.favBtn.innerHTML = '\u2606';
+    }
   };
 
   const setWeatherBackground = (icon, mainCondition) => {
     const isNight = icon.endsWith('n');
-    const condition = mainCondition.toLowerCase();
+    const condition = (mainCondition || '').toLowerCase();
     let bgClass = 'weather-bg-clear';
-
-    if (isNight) {
-      bgClass = 'weather-bg-night';
-    } else if (condition.includes('thunderstorm')) {
-      bgClass = 'weather-bg-thunderstorm';
-    } else if (condition.includes('rain') || condition.includes('drizzle')) {
-      bgClass = condition.includes('drizzle') ? 'weather-bg-drizzle' : 'weather-bg-rain';
-    } else if (condition.includes('snow')) {
-      bgClass = 'weather-bg-snow';
-    } else if (condition.includes('cloud') || condition.includes('overcast')) {
-      bgClass = 'weather-bg-clouds';
-    } else if (condition.includes('fog') || condition.includes('mist') || condition.includes('haze')) {
-      bgClass = 'weather-bg-mist';
-    }
-
+    if (isNight) bgClass = 'weather-bg-night';
+    else if (condition.includes('thunderstorm')) bgClass = 'weather-bg-thunderstorm';
+    else if (condition.includes('rain') || condition.includes('drizzle')) bgClass = condition.includes('drizzle') ? 'weather-bg-drizzle' : 'weather-bg-rain';
+    else if (condition.includes('snow')) bgClass = 'weather-bg-snow';
+    else if (condition.includes('cloud') || condition.includes('overcast')) bgClass = 'weather-bg-clouds';
+    else if (condition.includes('fog') || condition.includes('mist') || condition.includes('haze')) bgClass = 'weather-bg-mist';
     elements.weatherBg.className = `current-weather-bg ${bgClass}`;
   };
 
-  const renderRecentCities = () => {
+  const renderSidebar = () => {
+    // Recent
     const cities = Storage.getRecentCities();
     elements.recentList.innerHTML = '';
-
     if (cities.length === 0) {
       elements.recentList.innerHTML = '<li class="recent-item" style="cursor:default;justify-content:center;opacity:0.6">No recent searches</li>';
-      return;
+    } else {
+      cities.forEach(city => {
+        const li = document.createElement('li');
+        li.className = 'recent-item';
+        const iconUrl = city.icon ? `https://openweathermap.org/img/wn/${city.icon}.png` : '';
+        li.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${iconUrl ? `<img src="${iconUrl}" alt="" style="width:28px;height:28px;" loading="lazy" />` : ''}
+            <span class="recent-item-city">${city.name}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="recent-item-temp">${city.temp || ''}\u00B0</span>
+            <button class="recent-item-remove" data-city="${city.name}" aria-label="Remove">&times;</button>
+          </div>`;
+        li.addEventListener('click', (e) => {
+          if (e.target.classList.contains('recent-item-remove')) return;
+          state.currentCity = city.name; state.isGeolocation = false; hideLocationBanner();
+          Storage.saveLastCity(city.name); fetchWeatherByCity(city.name); closeSidebar();
+        });
+        li.querySelector('.recent-item-remove').addEventListener('click', (e) => {
+          e.stopPropagation(); Storage.removeRecentCity(city.name); renderSidebar();
+        });
+        elements.recentList.appendChild(li);
+      });
     }
 
-    cities.forEach(city => {
-      const li = document.createElement('li');
-      li.className = 'recent-item';
-
-      const iconUrl = city.icon
-        ? `https://openweathermap.org/img/wn/${city.icon}.png`
-        : '';
-
-      li.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;">
-          ${iconUrl ? `<img src="${iconUrl}" alt="" style="width:28px;height:28px;" loading="lazy" />` : ''}
-          <span class="recent-item-city">${city.name}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="recent-item-temp">${city.temp || ''}\u00B0</span>
-          <button class="recent-item-remove" data-city="${city.name}" aria-label="Remove">&times;</button>
-        </div>
-      `;
-
-      li.addEventListener('click', (e) => {
-        if (e.target.classList.contains('recent-item-remove')) return;
-        state.currentCity = city.name;
-        Storage.saveLastCity(city.name);
-        fetchWeatherByCity(city.name);
-        closeSidebar();
+    // Favorites
+    const favs = Storage.getFavorites();
+    elements.favList.innerHTML = '';
+    if (favs.length === 0) {
+      elements.favList.innerHTML = '<li class="recent-item" style="cursor:default;justify-content:center;opacity:0.6">No favorites yet \u2B50</li>';
+    } else {
+      favs.forEach(name => {
+        const li = document.createElement('li');
+        li.className = 'recent-item';
+        li.innerHTML = `
+          <span class="recent-item-city">${name}</span>
+          <button class="recent-item-remove fav-remove" data-city="${name}" aria-label="Remove">&times;</button>`;
+        li.addEventListener('click', (e) => {
+          if (e.target.classList.contains('fav-remove')) return;
+          state.currentCity = name; state.isGeolocation = false; hideLocationBanner();
+          Storage.saveLastCity(name); fetchWeatherByCity(name); closeSidebar();
+        });
+        li.querySelector('.fav-remove').addEventListener('click', (e) => {
+          e.stopPropagation(); Storage.removeFavorite(name); renderSidebar();
+          if (state.currentCity === name) updateFavBtn();
+        });
+        elements.favList.appendChild(li);
       });
-
-      const removeBtn = li.querySelector('.recent-item-remove');
-      removeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        Storage.removeRecentCity(city.name);
-        renderRecentCities();
-      });
-
-      elements.recentList.appendChild(li);
-    });
+    }
   };
 
   const startAutoRefresh = () => {
-    if (state.autoRefreshInterval) {
-      clearInterval(state.autoRefreshInterval);
-    }
+    if (state.autoRefreshInterval) clearInterval(state.autoRefreshInterval);
     state.autoRefreshInterval = setInterval(() => {
       if (state.currentCity && !state.isFetching) {
         fetchWeatherByCity(state.currentCity);
-        showToast('Weather data refreshed', 'success');
+        showToast('Weather refreshed \u2705', 'success');
       }
     }, 300000);
   };
@@ -485,9 +573,7 @@ const App = (() => {
     elements.errorContainer.classList.remove('active');
   };
 
-  const hideLoading = () => {
-    elements.loadingContainer.style.display = 'none';
-  };
+  const hideLoading = () => { elements.loadingContainer.style.display = 'none'; };
 
   const showError = (message) => {
     hideLoading();
@@ -497,26 +583,17 @@ const App = (() => {
     elements.searchInput.value = state.currentCity || '';
   };
 
-  const hideError = () => {
-    elements.errorContainer.classList.remove('active');
-  };
+  const hideError = () => { elements.errorContainer.classList.remove('active'); };
 
-  const formatDate = (date) => {
-    const options = {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    };
-    return date.toLocaleDateString('en-US', options);
-  };
+  const formatDate = (date) => date.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
 
   const showToast = (message, type = 'info') => {
     const toast = document.createElement('div');
     toast.className = `toast${type === 'error' ? ' toast-error' : ''}${type === 'success' ? ' toast-success' : ''}`;
     toast.textContent = message;
     elements.toastContainer.appendChild(toast);
-
     setTimeout(() => {
       toast.classList.add('removing');
       setTimeout(() => toast.remove(), 300);
