@@ -72,6 +72,14 @@ const App = (() => {
     suggestionsTimer: null
   };
 
+  const fetchByCoords = async (lat, lon) => {
+    const [w, f] = await Promise.all([
+      API.getCurrentWeatherByCoords(lat, lon, state.unit),
+      API.getForecastByCoords(lat, lon, state.unit)
+    ]);
+    return { weatherData: w, forecastData: f };
+  };
+
   const init = () => {
     loadTheme();
     loadUnit();
@@ -197,6 +205,7 @@ const App = (() => {
     hideSuggestions();
     state.currentCity = city;
     state.isGeolocation = false;
+    state.coords = null;
     hideLocationBanner();
     Storage.saveLastCity(city);
     fetchWeatherByCity(city);
@@ -242,12 +251,12 @@ const App = (() => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
-          state.coords = { lat: position.coords.latitude, lon: position.coords.longitude };
-          const weatherData = await API.getCurrentWeatherByCoords(state.coords.lat, state.coords.lon, state.unit);
-          const forecastData = await API.getForecastByCoords(state.coords.lat, state.coords.lon, state.unit);
-          state.currentCity = weatherData.name;
+          const { latitude, longitude } = position.coords;
+          state.coords = { lat: latitude, lon: longitude };
           state.isGeolocation = true;
-          Storage.saveLastCity(weatherData.name);
+          const { weatherData, forecastData } = await fetchByCoords(latitude, longitude);
+          state.currentCity = weatherData.name || 'My Location';
+          Storage.saveLastCity(state.currentCity);
           renderWeather(weatherData, forecastData);
           showLocationBanner(weatherData.name);
         } catch (err) {
@@ -429,7 +438,7 @@ const App = (() => {
     if (daily && daily.uv_index_max) {
       const uv = Math.round(daily.uv_index_max[0] * 10) / 10;
       elements.uvIndex.textContent = uv;
-      elements.dashPressure.textContent = uv;
+      elements.dashUv.textContent = uv;
     }
     if (daily && daily.sunrise) elements.sunrise.textContent = new Date(daily.sunrise[0]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     if (daily && daily.sunset) elements.sunset.textContent = new Date(daily.sunset[0]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
@@ -521,7 +530,7 @@ const App = (() => {
           </div>`;
         li.addEventListener('click', (e) => {
           if (e.target.classList.contains('recent-item-remove')) return;
-          state.currentCity = city.name; state.isGeolocation = false; hideLocationBanner();
+          state.currentCity = city.name; state.isGeolocation = false; state.coords = null; hideLocationBanner();
           Storage.saveLastCity(city.name); fetchWeatherByCity(city.name); closeSidebar();
         });
         li.querySelector('.recent-item-remove').addEventListener('click', (e) => {
@@ -545,7 +554,7 @@ const App = (() => {
           <button class="recent-item-remove fav-remove" data-city="${name}" aria-label="Remove">&times;</button>`;
         li.addEventListener('click', (e) => {
           if (e.target.classList.contains('fav-remove')) return;
-          state.currentCity = name; state.isGeolocation = false; hideLocationBanner();
+          state.currentCity = name; state.isGeolocation = false; state.coords = null; hideLocationBanner();
           Storage.saveLastCity(name); fetchWeatherByCity(name); closeSidebar();
         });
         li.querySelector('.fav-remove').addEventListener('click', (e) => {
@@ -559,10 +568,19 @@ const App = (() => {
 
   const startAutoRefresh = () => {
     if (state.autoRefreshInterval) clearInterval(state.autoRefreshInterval);
-    state.autoRefreshInterval = setInterval(() => {
-      if (state.currentCity && !state.isFetching) {
+    state.autoRefreshInterval = setInterval(async () => {
+      if (state.isFetching) return;
+      if (state.isGeolocation && state.coords) {
+        try {
+          state.isFetching = true;
+          const { weatherData, forecastData } = await fetchByCoords(state.coords.lat, state.coords.lon);
+          state.currentCity = weatherData.name;
+          renderWeather(weatherData, forecastData);
+          showToast('Weather refreshed \u2705', 'success');
+        } catch {}
+        state.isFetching = false;
+      } else if (state.currentCity) {
         fetchWeatherByCity(state.currentCity);
-        showToast('Weather refreshed \u2705', 'success');
       }
     }, 300000);
   };

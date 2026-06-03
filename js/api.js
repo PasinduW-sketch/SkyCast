@@ -7,6 +7,7 @@
 const API = (() => {
   const BASE_URL = 'https://api.open-meteo.com/v1';
   const GEO_URL = 'https://geocoding-api.open-meteo.com/v1';
+  const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
 
   /**
    * Maps WMO weather codes to human-readable descriptions and icon IDs
@@ -166,15 +167,31 @@ const API = (() => {
   };
 
   /**
-   * Gets current weather by coordinates
+   * Reverse geocode coordinates to city name using Nominatim (OSM)
+   */
+  const reverseGeocode = async (lat, lon) => {
+    try {
+      const url = `${NOMINATIM_URL}/reverse?lat=${lat}&lon=${lon}&format=json&zoom=10&accept-language=en`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'SkyCast/1.0' } });
+      const data = await res.json();
+      if (data && data.address) {
+        return data.address.city || data.address.town || data.address.village || data.address.county || 'Unknown';
+      }
+    } catch {}
+    return null;
+  };
+
+  /**
+   * Gets current weather by coordinates (with reverse geocoding)
    */
   const getCurrentWeatherByCoords = async (lat, lon, units = 'metric') => {
     const data = await fetchWeatherData(lat, lon);
     const c = data.current;
     const weather = getWeatherInfo(c.weathercode, true);
+    const cityName = await reverseGeocode(lat, lon);
 
     return {
-      name: 'Current Location',
+      name: cityName || 'Current Location',
       country: '',
       sys: { country: '' },
       main: {
