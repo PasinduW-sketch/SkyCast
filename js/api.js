@@ -1,6 +1,7 @@
 /**
- * SkyCast - API Integration Module
- * Uses Open-Meteo (free, no API key required)
+ * SkyCast - API Integration Module (Open-Meteo)
+ * Free, no API key required, lifetime non-commercial use.
+ * Docs: https://open-meteo.com/en/docs
  */
 
 const API = (() => {
@@ -8,7 +9,7 @@ const API = (() => {
   const GEO_URL = 'https://geocoding-api.open-meteo.com/v1';
 
   /**
-   * Converts WMO weather code to condition description and icon
+   * Maps WMO weather codes to human-readable descriptions and icon IDs
    */
   const getWeatherInfo = (code, isDay = true) => {
     const map = {
@@ -32,16 +33,47 @@ const API = (() => {
       73: { desc: 'Moderate snow', icon: '13d' },
       75: { desc: 'Heavy snow', icon: '13d' },
       77: { desc: 'Snow grains', icon: '13d' },
-      80: { desc: 'Slight rain showers', icon: '09d' },
-      81: { desc: 'Moderate rain showers', icon: '09d' },
-      82: { desc: 'Violent rain showers', icon: '09d' },
-      85: { desc: 'Slight snow showers', icon: '13d' },
-      86: { desc: 'Heavy snow showers', icon: '13d' },
+      80: { desc: 'Rain showers', icon: '09d' },
+      81: { desc: 'Rain showers', icon: '09d' },
+      82: { desc: 'Rain showers', icon: '09d' },
+      85: { desc: 'Snow showers', icon: '13d' },
+      86: { desc: 'Snow showers', icon: '13d' },
       95: { desc: 'Thunderstorm', icon: '11d' },
-      96: { desc: 'Thunderstorm with slight hail', icon: '11d' },
-      99: { desc: 'Thunderstorm with heavy hail', icon: '11d' }
+      96: { desc: 'Thunderstorm', icon: '11d' },
+      99: { desc: 'Thunderstorm', icon: '11d' }
     };
     return map[code] || { desc: 'Unknown', icon: '01d' };
+  };
+
+  /**
+   * Returns a friendly weather description for a WMO code
+   */
+  const getFriendlyCondition = (code, isDay = true) => {
+    const info = getWeatherInfo(code, isDay);
+    const vibes = {
+      'Clear sky': 'Perfect blue skies ahead',
+      'Mainly clear': 'Mostly sunny with a few clouds',
+      'Partly cloudy': 'A mix of sun and clouds',
+      'Overcast': 'Cloudy skies overhead',
+      'Foggy': 'Misty out there, drive safe',
+      'Depositing rime fog': 'Thick fog with icy patches',
+      'Light drizzle': 'A light drizzle falling',
+      'Moderate drizzle': 'Steady drizzle coming down',
+      'Dense drizzle': 'Heavy drizzle, grab a jacket',
+      'Freezing drizzle': 'Icy drizzle — watch your step',
+      'Slight rain': 'Light rain tapping on windows',
+      'Moderate rain': 'Rain coming down steadily',
+      'Heavy rain': 'Pouring out there!',
+      'Rain showers': 'Showers passing through',
+      'Slight snow': 'A few snowflakes drifting down',
+      'Moderate snow': 'Snow falling, winter is here',
+      'Heavy snow': 'Heavy snowfall, stay warm',
+      'Snow showers': 'Snow showers blowing through',
+      'Snow grains': 'Tiny ice crystals in the air',
+      'Freezing rain': 'Freezing rain — roads may be slick',
+      'Thunderstorm': 'Thunder rumbling, stay indoors'
+    };
+    return vibes[info.desc] || info.desc;
   };
 
   /**
@@ -49,34 +81,43 @@ const API = (() => {
    */
   const geocodeCity = async (city) => {
     if (!city || !city.trim()) {
-      throw new Error('Please enter a city name');
+      throw new Error('Please enter a city name to search');
     }
 
     const url = `${GEO_URL}/search?name=${encodeURIComponent(city.trim())}&count=1&language=en&format=json`;
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error('Failed to find city. Please try again.');
+      throw new Error('Could not reach the weather service. Please try again.');
     }
 
     const data = await response.json();
 
     if (!data.results || data.results.length === 0) {
-      throw new Error(`City "${city}" not found. Please check the spelling.`);
+      throw new Error(`Hmm, we couldn't find "${city}". Double-check the spelling?`);
     }
 
     return data.results[0];
   };
 
   /**
-   * Fetches current weather and forecast for coordinates
+   * Fetches all weather data for given coordinates
    */
   const fetchWeatherData = async (lat, lon, timezone = 'auto') => {
-    const url = `${BASE_URL}/forecast?latitude=${lat}&longitude=${lon}` +
-      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weathercode,wind_speed_10m` +
-      `&daily=temperature_2m_max,temperature_2m_min,weathercode,wind_speed_10m_max` +
-      `&temperature_unit=celsius&wind_speed_unit=ms&timezone=${timezone}&forecast_days=6`;
+    const params = new URLSearchParams({
+      latitude: lat,
+      longitude: lon,
+      current: 'temperature_2m,relative_humidity_2m,apparent_temperature,weathercode,wind_speed_10m,wind_direction_10m,surface_pressure,cloud_cover,precipitation',
+      hourly: 'temperature_2m,weathercode,precipitation_probability',
+      daily: 'temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_direction_10m_dominant',
+      temperature_unit: 'celsius',
+      wind_speed_unit: 'ms',
+      precipitation_unit: 'mm',
+      timezone,
+      forecast_days: 6
+    });
 
+    const url = `${BASE_URL}/forecast?${params}`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -91,30 +132,36 @@ const API = (() => {
    */
   const getCurrentWeather = async (city, units = 'metric') => {
     const geo = await geocodeCity(city);
-
     const data = await fetchWeatherData(geo.latitude, geo.longitude, geo.timezone);
-
-    const current = data.current;
-    const weather = getWeatherInfo(current.weathercode, true);
+    const c = data.current;
+    const isDay = c.weathercode !== undefined;
+    const weather = getWeatherInfo(c.weathercode, isDay);
 
     return {
       name: geo.name,
       country: geo.country_code?.toUpperCase() || '',
       sys: { country: geo.country_code?.toUpperCase() || '' },
       main: {
-        temp: current.temperature_2m,
-        feels_like: current.apparent_temperature,
-        humidity: current.relative_humidity_2m
+        temp: c.temperature_2m,
+        feels_like: c.apparent_temperature,
+        humidity: c.relative_humidity_2m,
+        pressure: c.surface_pressure
       },
-      wind: { speed: current.wind_speed_10m },
+      wind: {
+        speed: c.wind_speed_10m,
+        deg: c.wind_direction_10m
+      },
       weather: [{
         main: weather.desc,
         description: weather.desc,
         icon: weather.icon,
-        id: current.weathercode
+        id: c.weathercode
       }],
+      clouds: { all: c.cloud_cover },
+      rain: { '1h': c.precipitation },
       coord: { lat: geo.latitude, lon: geo.longitude },
-      timezone: geo.timezone || 'UTC'
+      timezone: geo.timezone || 'UTC',
+      friendly: getFriendlyCondition(c.weathercode, isDay)
     };
   };
 
@@ -123,48 +170,62 @@ const API = (() => {
    */
   const getCurrentWeatherByCoords = async (lat, lon, units = 'metric') => {
     const data = await fetchWeatherData(lat, lon);
-
-    const current = data.current;
-    const weather = getWeatherInfo(current.weathercode, true);
+    const c = data.current;
+    const weather = getWeatherInfo(c.weathercode, true);
 
     return {
       name: 'Current Location',
       country: '',
       sys: { country: '' },
       main: {
-        temp: current.temperature_2m,
-        feels_like: current.apparent_temperature,
-        humidity: current.relative_humidity_2m
+        temp: c.temperature_2m,
+        feels_like: c.apparent_temperature,
+        humidity: c.relative_humidity_2m,
+        pressure: c.surface_pressure
       },
-      wind: { speed: current.wind_speed_10m },
+      wind: {
+        speed: c.wind_speed_10m,
+        deg: c.wind_direction_10m
+      },
       weather: [{
         main: weather.desc,
         description: weather.desc,
         icon: weather.icon,
-        id: current.weathercode
+        id: c.weathercode
       }],
+      clouds: { all: c.cloud_cover },
+      rain: { '1h': c.precipitation },
       coord: { lat, lon },
-      timezone: 'UTC'
+      timezone: 'UTC',
+      friendly: getFriendlyCondition(c.weathercode, true)
     };
   };
 
   /**
-   * Gets 5-day forecast by city name
+   * Gets forecast data by city name
    */
   const getForecast = async (city, units = 'metric') => {
     const geo = await geocodeCity(city);
     const data = await fetchWeatherData(geo.latitude, geo.longitude, geo.timezone);
 
-    return { list: data.daily, city: geo };
+    return {
+      daily: data.daily,
+      hourly: data.hourly,
+      geo
+    };
   };
 
   /**
-   * Gets 5-day forecast by coordinates
+   * Gets forecast data by coordinates
    */
   const getForecastByCoords = async (lat, lon, units = 'metric') => {
     const data = await fetchWeatherData(lat, lon);
 
-    return { list: data.daily, city: null };
+    return {
+      daily: data.daily,
+      hourly: data.hourly,
+      geo: null
+    };
   };
 
   return {
@@ -173,6 +234,7 @@ const API = (() => {
     getForecast,
     getForecastByCoords,
     getWeatherInfo,
+    getFriendlyCondition,
     fetchWeatherData
   };
 })();

@@ -8,10 +8,14 @@
   <link rel="stylesheet" href="css/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>\2601</text></svg>" />
 </head>
 <body>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
   <div class="app-container">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -74,25 +78,40 @@
 
       <!-- Content Area -->
       <div class="content" id="content">
-        <!-- Loading Spinner -->
+        <!-- Loading Skeleton -->
         <div class="loading-container" id="loadingContainer">
-          <div class="spinner">
-            <div class="cloud cloud-1">&#x2601;</div>
-            <div class="cloud cloud-2">&#x2601;</div>
-            <div class="cloud cloud-3">&#x2601;</div>
+          <div class="skeleton-current skeleton-pulse">
+            <div class="skeleton-line skeleton-line-lg"></div>
+            <div class="skeleton-line skeleton-line-md"></div>
+            <div class="skeleton-line skeleton-line-xl"></div>
+            <div class="skeleton-row">
+              <div class="skeleton-line skeleton-line-sm"></div>
+              <div class="skeleton-line skeleton-line-sm"></div>
+              <div class="skeleton-line skeleton-line-sm"></div>
+            </div>
           </div>
-          <p class="loading-text">Fetching weather data...</p>
+          <div class="skeleton-forecast skeleton-pulse">
+            <div class="skeleton-row">
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+            </div>
+          </div>
+          <p class="loading-text">Fetching your forecast...</p>
         </div>
 
         <!-- Error Display -->
         <div class="error-container" id="errorContainer">
           <div class="error-icon">&#x26A0;</div>
-          <p class="error-message" id="errorMessage">City not found. Please try again.</p>
+          <p class="error-message" id="errorMessage">Something went wrong.</p>
           <button class="error-retry" id="errorRetry">Try Again</button>
         </div>
 
         <!-- Weather Dashboard -->
         <div class="weather-dashboard" id="weatherDashboard" style="display:none;">
+
           <!-- Current Weather Card -->
           <div class="current-weather glass" id="currentWeather">
             <div class="current-weather-bg" id="weatherBg"></div>
@@ -101,6 +120,7 @@
                 <div class="city-info">
                   <h2 class="city-name" id="cityName">--</h2>
                   <p class="city-date" id="currentDate">--</p>
+                  <p class="friendly-condition" id="friendlyCondition"></p>
                 </div>
                 <div class="temp-info">
                   <span class="current-temp" id="currentTemp">--</span>
@@ -122,10 +142,59 @@
                     <span class="detail-value" id="humidity">--</span>
                   </div>
                   <div class="detail-item">
-                    <span class="detail-label">Wind Speed</span>
+                    <span class="detail-label">Wind</span>
                     <span class="detail-value" id="windSpeed">--</span>
                   </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Cloud Cover</span>
+                    <span class="detail-value" id="cloudCover">--</span>
+                  </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hourly Forecast -->
+          <div class="hourly-section">
+            <h3 class="section-title">Hourly Forecast</h3>
+            <div class="hourly-scroll" id="hourlyScroll">
+              <div class="hourly-cards" id="hourlyCards"></div>
+            </div>
+          </div>
+
+          <!-- Weather Highlights -->
+          <div class="highlights-section">
+            <h3 class="section-title">Today's Highlights</h3>
+            <div class="highlights-grid" id="highlightsGrid">
+              <div class="highlight-card glass">
+                <span class="highlight-icon">&#x2600;</span>
+                <span class="highlight-label">UV Index</span>
+                <span class="highlight-value" id="uvIndex">--</span>
+              </div>
+              <div class="highlight-card glass">
+                <span class="highlight-icon">&#x2191;</span>
+                <span class="highlight-label">Sunrise</span>
+                <span class="highlight-value" id="sunrise">--</span>
+              </div>
+              <div class="highlight-card glass">
+                <span class="highlight-icon">&#x2193;</span>
+                <span class="highlight-label">Sunset</span>
+                <span class="highlight-value" id="sunset">--</span>
+              </div>
+              <div class="highlight-card glass">
+                <span class="highlight-icon">&#x2602;</span>
+                <span class="highlight-label">Rain Chance</span>
+                <span class="highlight-value" id="rainChance">--</span>
+              </div>
+              <div class="highlight-card glass">
+                <span class="highlight-icon">&#x1F4A8;</span>
+                <span class="highlight-label">Pressure</span>
+                <span class="highlight-value" id="pressure">--</span>
+              </div>
+              <div class="highlight-card glass">
+                <span class="highlight-icon">&#x1F32A;</span>
+                <span class="highlight-label">Wind Direction</span>
+                <span class="highlight-value" id="windDirection">--</span>
               </div>
             </div>
           </div>
@@ -139,7 +208,7 @@
       </div>
 
       <footer class="footer">
-        <p>Powered by <a href="https://openweathermap.org/" target="_blank" rel="noopener">OpenWeatherMap</a></p>
+        <p>Powered by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> &bull; <a href="https://openweathermap.org/" target="_blank" rel="noopener">Weather Icons by OWM</a></p>
       </footer>
     </main>
   </div>

@@ -1,10 +1,9 @@
 /**
  * SkyCast - Main Application Module
- * Orchestrates all UI interactions, data fetching, and rendering
+ * Handles all UI rendering, event handling, and state management
  */
 
 const App = (() => {
-  // --- DOM References ---
   const elements = {
     sidebar: document.getElementById('sidebar'),
     sidebarClose: document.getElementById('sidebarClose'),
@@ -23,6 +22,7 @@ const App = (() => {
     weatherDashboard: document.getElementById('weatherDashboard'),
     cityName: document.getElementById('cityName'),
     currentDate: document.getElementById('currentDate'),
+    friendlyCondition: document.getElementById('friendlyCondition'),
     currentTemp: document.getElementById('currentTemp'),
     tempUnitDisplay: document.querySelectorAll('.temp-unit'),
     weatherCondition: document.getElementById('weatherCondition'),
@@ -31,10 +31,18 @@ const App = (() => {
     feelsLike: document.getElementById('feelsLike'),
     humidity: document.getElementById('humidity'),
     windSpeed: document.getElementById('windSpeed'),
-    forecastCards: document.getElementById('forecastCards')
+    cloudCover: document.getElementById('cloudCover'),
+    forecastCards: document.getElementById('forecastCards'),
+    hourlyCards: document.getElementById('hourlyCards'),
+    uvIndex: document.getElementById('uvIndex'),
+    sunrise: document.getElementById('sunrise'),
+    sunset: document.getElementById('sunset'),
+    rainChance: document.getElementById('rainChance'),
+    pressure: document.getElementById('pressure'),
+    windDirection: document.getElementById('windDirection'),
+    toastContainer: document.getElementById('toastContainer')
   };
 
-  // --- State ---
   let state = {
     currentCity: Storage.getLastCity(),
     unit: Storage.getUnit(),
@@ -44,7 +52,6 @@ const App = (() => {
     isFetching: false
   };
 
-  // --- Initialization ---
   const init = () => {
     loadTheme();
     loadUnit();
@@ -60,7 +67,6 @@ const App = (() => {
     }
   };
 
-  // --- Theme ---
   const loadTheme = () => {
     const theme = Storage.getTheme();
     document.documentElement.setAttribute('data-theme', theme);
@@ -71,9 +77,9 @@ const App = (() => {
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     Storage.saveTheme(next);
+    showToast(next === 'dark' ? 'Dark mode activated' : 'Light mode activated', 'success');
   };
 
-  // --- Unit ---
   const loadUnit = () => {
     state.unit = Storage.getUnit();
     elements.unitToggle.textContent = state.unit === 'metric' ? '\u00B0C' : '\u00B0F';
@@ -94,7 +100,6 @@ const App = (() => {
     }
   };
 
-  // --- DateTime ---
   const updateDateTime = () => {
     const now = new Date();
     const options = {
@@ -107,7 +112,6 @@ const App = (() => {
     elements.datetime.textContent = now.toLocaleDateString('en-US', options);
   };
 
-  // --- Event Listeners ---
   const setupEventListeners = () => {
     elements.searchForm.addEventListener('submit', handleSearch);
     elements.hamburger.addEventListener('click', openSidebar);
@@ -124,7 +128,6 @@ const App = (() => {
     });
   };
 
-  // --- Sidebar ---
   const openSidebar = () => {
     elements.sidebar.classList.add('active');
     elements.overlay.classList.add('active');
@@ -137,12 +140,11 @@ const App = (() => {
     document.body.style.overflow = '';
   };
 
-  // --- Search ---
   const handleSearch = (e) => {
     e.preventDefault();
     const city = elements.searchInput.value.trim();
     if (!city) {
-      showError('Please enter a city name.');
+      showError('Please enter a city name to search');
       return;
     }
     state.currentCity = city;
@@ -151,7 +153,6 @@ const App = (() => {
     elements.searchInput.blur();
   };
 
-  // --- Geolocation ---
   const detectLocation = () => {
     if (!navigator.geolocation) {
       if (state.currentCity) {
@@ -186,7 +187,6 @@ const App = (() => {
     );
   };
 
-  // --- Fetch Weather ---
   const fetchWeatherByCity = async (city) => {
     if (state.isFetching) return;
     state.isFetching = true;
@@ -213,12 +213,12 @@ const App = (() => {
       startAutoRefresh();
     } catch (err) {
       showError(err.message);
+      showToast(err.message, 'error');
     } finally {
       state.isFetching = false;
     }
   };
 
-  // --- Render Weather ---
   const renderWeather = (weatherData, forecastData) => {
     state.weatherData = weatherData;
     state.forecastData = forecastData;
@@ -226,6 +226,8 @@ const App = (() => {
     hideLoading();
     hideError();
     elements.weatherDashboard.style.display = 'flex';
+    elements.weatherDashboard.classList.add('animate');
+    setTimeout(() => elements.weatherDashboard.classList.remove('animate'), 600);
 
     const main = weatherData.main;
     const weather = weatherData.weather[0];
@@ -233,35 +235,43 @@ const App = (() => {
     const unitSymbol = state.unit === 'metric' ? '\u00B0C' : '\u00B0F';
     const speedUnit = state.unit === 'metric' ? 'm/s' : 'mph';
 
-    elements.cityName.textContent = `${weatherData.name}, ${weatherData.sys.country}`;
+    const country = weatherData.country || weatherData.sys?.country || '';
+    elements.cityName.textContent = country
+      ? `${weatherData.name}, ${country}`
+      : weatherData.name;
     elements.currentDate.textContent = formatDate(new Date());
     elements.currentTemp.textContent = Math.round(main.temp);
     elements.weatherCondition.textContent = weather.description;
+    elements.friendlyCondition.textContent = weatherData.friendly || '';
+
     elements.feelsLike.textContent = `${Math.round(main.feels_like)}${unitSymbol}`;
     elements.humidity.textContent = `${main.humidity}%`;
     elements.windSpeed.textContent = `${Math.round(wind.speed)} ${speedUnit}`;
+    elements.cloudCover.textContent = weatherData.clouds?.all !== undefined
+      ? `${weatherData.clouds.all}%` : '--';
+
     elements.weatherIcon.src = `https://openweathermap.org/img/wn/${weather.icon}@4x.png`;
     elements.weatherIcon.alt = weather.description;
 
     setWeatherBackground(weather.icon, weather.main);
     renderForecast(forecastData);
+    renderHourly(forecastData);
+    renderHighlights(weatherData, forecastData);
     updateDateTime();
   };
 
-  // --- Render Forecast ---
   const renderForecast = (forecastData) => {
-    const dailyData = processForecast(forecastData.list);
+    const dailyData = processForecast(forecastData.daily);
     elements.forecastCards.innerHTML = '';
 
     dailyData.forEach(day => {
       const card = document.createElement('div');
       card.className = 'forecast-card glass';
-
       const unitSymbol = state.unit === 'metric' ? '\u00B0C' : '\u00B0F';
 
       card.innerHTML = `
         <div class="forecast-day">${day.day}</div>
-        <img class="forecast-icon" src="https://openweathermap.org/img/wn/${day.icon}@2x.png" alt="${day.condition}" />
+        <img class="forecast-icon" src="https://openweathermap.org/img/wn/${day.icon}@2x.png" alt="${day.condition}" loading="lazy" />
         <div class="forecast-temp">${Math.round(day.temp)}${unitSymbol}</div>
         <div class="forecast-temp-range">H:${Math.round(day.tempMax)}${unitSymbol} L:${Math.round(day.tempMin)}${unitSymbol}</div>
         <div class="forecast-condition">${day.condition}</div>
@@ -271,9 +281,6 @@ const App = (() => {
     });
   };
 
-  /**
-   * Processes daily forecast data from Open-Meteo
-   */
   const processForecast = (daily) => {
     if (!daily || !daily.time) return [];
     const today = new Date().toLocaleDateString('en-US');
@@ -283,7 +290,6 @@ const App = (() => {
         const date = new Date(dateStr + 'T12:00:00');
         const dateKey = date.toLocaleDateString('en-US');
         const weather = API.getWeatherInfo(daily.weathercode[i]);
-
         return {
           day: date.toLocaleDateString('en-US', { weekday: 'long' }),
           temp: (daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2,
@@ -298,11 +304,103 @@ const App = (() => {
       .slice(0, 5);
   };
 
-  // --- Weather Background ---
+  const renderHourly = (forecastData) => {
+    const hourly = forecastData.hourly;
+    if (!hourly || !hourly.time) return;
+
+    elements.hourlyCards.innerHTML = '';
+    const now = new Date();
+    const currentHour = now.getHours();
+    const todayStr = now.toLocaleDateString('en-US');
+
+    let count = 0;
+
+    hourly.time.forEach((timeStr, i) => {
+      const date = new Date(timeStr);
+      const hour = date.getHours();
+      const dateKey = date.toLocaleDateString('en-US');
+      const hoursFromNow = Math.round((date - now) / (1000 * 60 * 60));
+
+      if (hoursFromNow < 0 && dateKey === todayStr) return;
+
+      if (count >= 12) return;
+
+      const weather = API.getWeatherInfo(hourly.weathercode[i]);
+      const isActive = hoursFromNow === 0 || (hoursFromNow < 1 && hoursFromNow >= 0);
+
+      const card = document.createElement('div');
+      card.className = `hourly-card${isActive ? ' active' : ''}`;
+
+      let timeLabel;
+      if (hoursFromNow <= 0 && dateKey === todayStr) {
+        timeLabel = 'Now';
+      } else if (dateKey !== todayStr) {
+        timeLabel = date.toLocaleDateString('en-US', { weekday: 'short', hour: 'numeric' });
+      } else {
+        timeLabel = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+      }
+
+      const rain = hourly.precipitation_probability?.[i];
+
+      card.innerHTML = `
+        <div class="hourly-time">${timeLabel}</div>
+        <img class="hourly-icon" src="https://openweathermap.org/img/wn/${weather.icon}.png" alt="${weather.desc}" loading="lazy" />
+        <div class="hourly-temp">${Math.round(hourly.temperature_2m[i])}\u00B0</div>
+        ${rain !== undefined ? `<div class="hourly-rain">${rain}%</div>` : ''}
+      `;
+
+      elements.hourlyCards.appendChild(card);
+      count++;
+    });
+  };
+
+  const renderHighlights = (weatherData, forecastData) => {
+    const daily = forecastData.daily;
+    const main = weatherData.main;
+    const wind = weatherData.wind;
+
+    if (daily && daily.uv_index_max) {
+      const uv = Math.round(daily.uv_index_max[0] * 10) / 10;
+      elements.uvIndex.textContent = uv;
+      elements.uvIndex.title = uv >= 8 ? 'Very high' : uv >= 6 ? 'High' : uv >= 3 ? 'Moderate' : 'Low';
+    }
+
+    if (daily && daily.sunrise) {
+      const time = new Date(daily.sunrise[0]);
+      elements.sunrise.textContent = time.toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', hour12: true
+      });
+    }
+
+    if (daily && daily.sunset) {
+      const time = new Date(daily.sunset[0]);
+      elements.sunset.textContent = time.toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', hour12: true
+      });
+    }
+
+    if (daily && daily.precipitation_probability_max) {
+      elements.rainChance.textContent = `${daily.precipitation_probability_max[0]}%`;
+    }
+
+    if (main && main.pressure) {
+      elements.pressure.textContent = `${Math.round(main.pressure)} hPa`;
+    }
+
+    if (wind && wind.deg !== undefined) {
+      elements.windDirection.textContent = getWindDirection(wind.deg);
+    }
+  };
+
+  const getWindDirection = (deg) => {
+    const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                  'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    return dirs[Math.round(deg / 22.5) % 16];
+  };
+
   const setWeatherBackground = (icon, mainCondition) => {
     const isNight = icon.endsWith('n');
     const condition = mainCondition.toLowerCase();
-
     let bgClass = 'weather-bg-clear';
 
     if (isNight) {
@@ -313,16 +411,15 @@ const App = (() => {
       bgClass = condition.includes('drizzle') ? 'weather-bg-drizzle' : 'weather-bg-rain';
     } else if (condition.includes('snow')) {
       bgClass = 'weather-bg-snow';
-    } else if (condition.includes('clouds') || condition.includes('overcast')) {
+    } else if (condition.includes('cloud') || condition.includes('overcast')) {
       bgClass = 'weather-bg-clouds';
-    } else if (condition.includes('mist') || condition.includes('fog') || condition.includes('haze')) {
+    } else if (condition.includes('fog') || condition.includes('mist') || condition.includes('haze')) {
       bgClass = 'weather-bg-mist';
     }
 
     elements.weatherBg.className = `current-weather-bg ${bgClass}`;
   };
 
-  // --- Recent Cities ---
   const renderRecentCities = () => {
     const cities = Storage.getRecentCities();
     elements.recentList.innerHTML = '';
@@ -342,7 +439,7 @@ const App = (() => {
 
       li.innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;">
-          ${iconUrl ? `<img src="${iconUrl}" alt="" style="width:28px;height:28px;" />` : ''}
+          ${iconUrl ? `<img src="${iconUrl}" alt="" style="width:28px;height:28px;" loading="lazy" />` : ''}
           <span class="recent-item-city">${city.name}</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -370,7 +467,6 @@ const App = (() => {
     });
   };
 
-  // --- Auto Refresh ---
   const startAutoRefresh = () => {
     if (state.autoRefreshInterval) {
       clearInterval(state.autoRefreshInterval);
@@ -378,11 +474,11 @@ const App = (() => {
     state.autoRefreshInterval = setInterval(() => {
       if (state.currentCity && !state.isFetching) {
         fetchWeatherByCity(state.currentCity);
+        showToast('Weather data refreshed', 'success');
       }
     }, 300000);
   };
 
-  // --- UI Helpers ---
   const showLoading = () => {
     elements.loadingContainer.style.display = 'flex';
     elements.weatherDashboard.style.display = 'none';
@@ -415,7 +511,18 @@ const App = (() => {
     return date.toLocaleDateString('en-US', options);
   };
 
-  // --- Bootstrap ---
+  const showToast = (message, type = 'info') => {
+    const toast = document.createElement('div');
+    toast.className = `toast${type === 'error' ? ' toast-error' : ''}${type === 'success' ? ' toast-success' : ''}`;
+    toast.textContent = message;
+    elements.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add('removing');
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  };
+
   return { init };
 })();
 
