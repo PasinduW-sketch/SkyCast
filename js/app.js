@@ -278,7 +278,7 @@ const App = (() => {
         if (state.currentCity) fetchWeatherByCity(state.currentCity);
         else fetchWeatherByCity('London');
       },
-      { timeout: 10000, enableHighAccuracy: false }
+      { timeout: 10000, enableHighAccuracy: true }
     );
   };
 
