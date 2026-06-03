@@ -5,7 +5,7 @@
 
 const API = (() => {
   const BASE_URL = 'https://api.openweathermap.org/data/2.5';
-  const API_KEY = 'YOUR_API_KEY_HERE';
+  const API_KEY = '9195373a6ada5940c3bc9c3c5ef00be9';
 
   /**
    * Fetches current weather data for a given city
