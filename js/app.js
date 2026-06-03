@@ -272,73 +272,30 @@ const App = (() => {
   };
 
   /**
-   * Processes 3-hour forecast list into daily forecasts
-   * @param {Array} list - 3-hour forecast entries
-   * @returns {Array} Daily forecast summaries
+   * Processes daily forecast data from Open-Meteo
    */
-  const processForecast = (list) => {
-    const dailyMap = {};
-
-    list.forEach(item => {
-      const date = new Date(item.dt * 1000);
-      const dayKey = date.toLocaleDateString('en-US', { weekday: 'long' });
-      const dateKey = date.toLocaleDateString('en-US');
-
-      if (!dailyMap[dateKey]) {
-        dailyMap[dateKey] = {
-          day: dayKey,
-          temps: [],
-          tempMax: -Infinity,
-          tempMin: Infinity,
-          icon: item.weather[0].icon,
-          condition: item.weather[0].description,
-          iconPriority: getIconPriority(item.weather[0].icon)
-        };
-      }
-
-      const entry = dailyMap[dateKey];
-      entry.temps.push(item.main.temp);
-      entry.tempMax = Math.max(entry.tempMax, item.main.temp_max);
-      entry.tempMin = Math.min(entry.tempMin, item.main.temp_min);
-
-      const currentPriority = getIconPriority(item.weather[0].icon);
-      if (currentPriority > entry.iconPriority) {
-        entry.icon = item.weather[0].icon;
-        entry.condition = item.weather[0].description;
-        entry.iconPriority = currentPriority;
-      }
-    });
-
+  const processForecast = (daily) => {
+    if (!daily || !daily.time) return [];
     const today = new Date().toLocaleDateString('en-US');
-    return Object.entries(dailyMap)
-      .filter(([key]) => key !== today)
-      .slice(0, 5)
-      .map(([, value]) => ({
-        day: value.day,
-        temp: value.temps.reduce((a, b) => a + b, 0) / value.temps.length,
-        tempMax: value.tempMax,
-        tempMin: value.tempMin,
-        icon: value.icon,
-        condition: value.condition
-      }));
-  };
 
-  /**
-   * Priority system for weather icons (higher = more severe)
-   */
-  const getIconPriority = (icon) => {
-    const severe = ['11d', '11n'];
-    const rainy = ['09d', '09n', '10d', '10n'];
-    const snowy = ['13d', '13n'];
-    const cloudy = ['04d', '04n', '03d', '03n'];
-    const clear = ['01d', '01n'];
+    return daily.time
+      .map((dateStr, i) => {
+        const date = new Date(dateStr + 'T12:00:00');
+        const dateKey = date.toLocaleDateString('en-US');
+        const weather = API.getWeatherInfo(daily.weathercode[i]);
 
-    if (severe.includes(icon)) return 5;
-    if (rainy.includes(icon)) return 4;
-    if (snowy.includes(icon)) return 3;
-    if (cloudy.includes(icon)) return 2;
-    if (clear.includes(icon)) return 1;
-    return 0;
+        return {
+          day: date.toLocaleDateString('en-US', { weekday: 'long' }),
+          temp: (daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2,
+          tempMax: daily.temperature_2m_max[i],
+          tempMin: daily.temperature_2m_min[i],
+          icon: weather.icon,
+          condition: weather.desc,
+          dateKey
+        };
+      })
+      .filter(d => d.dateKey !== today)
+      .slice(0, 5);
   };
 
   // --- Weather Background ---

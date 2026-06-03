@@ -1,112 +1,178 @@
 /**
  * SkyCast - API Integration Module
- * Handles all OpenWeatherMap API communication
+ * Uses Open-Meteo (free, no API key required)
  */
 
 const API = (() => {
-  const BASE_URL = 'https://api.openweathermap.org/data/2.5';
-  const API_KEY = '9195373a6ada5940c3bc9c3c5ef00be9';
+  const BASE_URL = 'https://api.open-meteo.com/v1';
+  const GEO_URL = 'https://geocoding-api.open-meteo.com/v1';
 
   /**
-   * Fetches current weather data for a given city
-   * @param {string} city - City name
-   * @param {string} units - 'metric' or 'imperial'
-   * @returns {Promise<Object>} Weather data object
+   * Converts WMO weather code to condition description and icon
+   */
+  const getWeatherInfo = (code, isDay = true) => {
+    const map = {
+      0:  { desc: 'Clear sky', icon: isDay ? '01d' : '01n' },
+      1:  { desc: 'Mainly clear', icon: isDay ? '01d' : '01n' },
+      2:  { desc: 'Partly cloudy', icon: isDay ? '02d' : '02n' },
+      3:  { desc: 'Overcast', icon: '04d' },
+      45: { desc: 'Foggy', icon: '50d' },
+      48: { desc: 'Depositing rime fog', icon: '50d' },
+      51: { desc: 'Light drizzle', icon: '09d' },
+      53: { desc: 'Moderate drizzle', icon: '09d' },
+      55: { desc: 'Dense drizzle', icon: '09d' },
+      56: { desc: 'Freezing drizzle', icon: '09d' },
+      57: { desc: 'Freezing drizzle', icon: '09d' },
+      61: { desc: 'Slight rain', icon: '10d' },
+      63: { desc: 'Moderate rain', icon: '10d' },
+      65: { desc: 'Heavy rain', icon: '10d' },
+      66: { desc: 'Freezing rain', icon: '13d' },
+      67: { desc: 'Freezing rain', icon: '13d' },
+      71: { desc: 'Slight snow', icon: '13d' },
+      73: { desc: 'Moderate snow', icon: '13d' },
+      75: { desc: 'Heavy snow', icon: '13d' },
+      77: { desc: 'Snow grains', icon: '13d' },
+      80: { desc: 'Slight rain showers', icon: '09d' },
+      81: { desc: 'Moderate rain showers', icon: '09d' },
+      82: { desc: 'Violent rain showers', icon: '09d' },
+      85: { desc: 'Slight snow showers', icon: '13d' },
+      86: { desc: 'Heavy snow showers', icon: '13d' },
+      95: { desc: 'Thunderstorm', icon: '11d' },
+      96: { desc: 'Thunderstorm with slight hail', icon: '11d' },
+      99: { desc: 'Thunderstorm with heavy hail', icon: '11d' }
+    };
+    return map[code] || { desc: 'Unknown', icon: '01d' };
+  };
+
+  /**
+   * Geocode a city name to coordinates
+   */
+  const geocodeCity = async (city) => {
+    if (!city || !city.trim()) {
+      throw new Error('Please enter a city name');
+    }
+
+    const url = `${GEO_URL}/search?name=${encodeURIComponent(city.trim())}&count=1&language=en&format=json`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error('Failed to find city. Please try again.');
+    }
+
+    const data = await response.json();
+
+    if (!data.results || data.results.length === 0) {
+      throw new Error(`City "${city}" not found. Please check the spelling.`);
+    }
+
+    return data.results[0];
+  };
+
+  /**
+   * Fetches current weather and forecast for coordinates
+   */
+  const fetchWeatherData = async (lat, lon, timezone = 'auto') => {
+    const url = `${BASE_URL}/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weathercode,wind_speed_10m` +
+      `&daily=temperature_2m_max,temperature_2m_min,weathercode,wind_speed_10m_max` +
+      `&temperature_unit=celsius&wind_speed_unit=ms&timezone=${timezone}&forecast_days=6`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch weather data. Please try again.');
+    }
+
+    return await response.json();
+  };
+
+  /**
+   * Gets current weather by city name
    */
   const getCurrentWeather = async (city, units = 'metric') => {
-    if (!city || !city.trim()) {
-      throw new Error('Please enter a city name');
-    }
+    const geo = await geocodeCity(city);
 
-    const url = `${BASE_URL}/weather?q=${encodeURIComponent(city.trim())}&units=${units}&appid=${API_KEY}`;
-    const response = await fetch(url);
+    const data = await fetchWeatherData(geo.latitude, geo.longitude, geo.timezone);
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error(`City "${city}" not found. Please check the spelling.`);
-      }
-      if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your configuration.');
-      }
-      throw new Error('Failed to fetch weather data. Please try again.');
-    }
+    const current = data.current;
+    const weather = getWeatherInfo(current.weathercode, true);
 
-    return await response.json();
+    return {
+      name: geo.name,
+      country: geo.country_code?.toUpperCase() || '',
+      sys: { country: geo.country_code?.toUpperCase() || '' },
+      main: {
+        temp: current.temperature_2m,
+        feels_like: current.apparent_temperature,
+        humidity: current.relative_humidity_2m
+      },
+      wind: { speed: current.wind_speed_10m },
+      weather: [{
+        main: weather.desc,
+        description: weather.desc,
+        icon: weather.icon,
+        id: current.weathercode
+      }],
+      coord: { lat: geo.latitude, lon: geo.longitude },
+      timezone: geo.timezone || 'UTC'
+    };
   };
 
   /**
-   * Fetches current weather data using geographic coordinates
-   * @param {number} lat - Latitude
-   * @param {number} lon - Longitude
-   * @param {string} units - 'metric' or 'imperial'
-   * @returns {Promise<Object>} Weather data object
+   * Gets current weather by coordinates
    */
   const getCurrentWeatherByCoords = async (lat, lon, units = 'metric') => {
-    const url = `${BASE_URL}/weather?lat=${lat}&lon=${lon}&units=${units}&appid=${API_KEY}`;
-    const response = await fetch(url);
+    const data = await fetchWeatherData(lat, lon);
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your configuration.');
-      }
-      throw new Error('Failed to fetch weather data. Please try again.');
-    }
+    const current = data.current;
+    const weather = getWeatherInfo(current.weathercode, true);
 
-    return await response.json();
+    return {
+      name: 'Current Location',
+      country: '',
+      sys: { country: '' },
+      main: {
+        temp: current.temperature_2m,
+        feels_like: current.apparent_temperature,
+        humidity: current.relative_humidity_2m
+      },
+      wind: { speed: current.wind_speed_10m },
+      weather: [{
+        main: weather.desc,
+        description: weather.desc,
+        icon: weather.icon,
+        id: current.weathercode
+      }],
+      coord: { lat, lon },
+      timezone: 'UTC'
+    };
   };
 
   /**
-   * Fetches 5-day / 3-hour forecast data for a given city
-   * @param {string} city - City name
-   * @param {string} units - 'metric' or 'imperial'
-   * @returns {Promise<Object>} Forecast data object
+   * Gets 5-day forecast by city name
    */
   const getForecast = async (city, units = 'metric') => {
-    if (!city || !city.trim()) {
-      throw new Error('Please enter a city name');
-    }
+    const geo = await geocodeCity(city);
+    const data = await fetchWeatherData(geo.latitude, geo.longitude, geo.timezone);
 
-    const url = `${BASE_URL}/forecast?q=${encodeURIComponent(city.trim())}&units=${units}&appid=${API_KEY}`;
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error(`City "${city}" not found. Please check the spelling.`);
-      }
-      if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your configuration.');
-      }
-      throw new Error('Failed to fetch forecast data. Please try again.');
-    }
-
-    return await response.json();
+    return { list: data.daily, city: geo };
   };
 
   /**
-   * Fetches 5-day / 3-hour forecast data using geographic coordinates
-   * @param {number} lat - Latitude
-   * @param {number} lon - Longitude
-   * @param {string} units - 'metric' or 'imperial'
-   * @returns {Promise<Object>} Forecast data object
+   * Gets 5-day forecast by coordinates
    */
   const getForecastByCoords = async (lat, lon, units = 'metric') => {
-    const url = `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=${units}&appid=${API_KEY}`;
-    const response = await fetch(url);
+    const data = await fetchWeatherData(lat, lon);
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your configuration.');
-      }
-      throw new Error('Failed to fetch forecast data. Please try again.');
-    }
-
-    return await response.json();
+    return { list: data.daily, city: null };
   };
 
   return {
     getCurrentWeather,
     getCurrentWeatherByCoords,
     getForecast,
-    getForecastByCoords
+    getForecastByCoords,
+    getWeatherInfo,
+    fetchWeatherData
   };
 })();
