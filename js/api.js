@@ -78,27 +78,68 @@ const API = (() => {
   };
 
   /**
-   * Geocode a city name to coordinates
+   * Geocode using Nominatim (OSM) — covers almost any place on earth
+   */
+  const geocodeWithNominatim = async (query) => {
+    const url = `${NOMINATIM_URL}/search?q=${encodeURIComponent(query)}&format=json&limit=1&addressdetails=1&accept-language=en`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'SkyCast/1.0' } });
+    const data = await res.json();
+    if (!data || data.length === 0) return null;
+    const r = data[0];
+    const addr = r.address || {};
+    return {
+      name: addr.city || addr.town || addr.village || addr.hamlet || addr.county || addr.state || r.display_name.split(',')[0],
+      country_code: addr.country_code || '',
+      timezone: r.timezone || 'auto',
+      latitude: parseFloat(r.lat),
+      longitude: parseFloat(r.lon)
+    };
+  };
+
+  /**
+   * Geocode using Nominatim (OSM) — covers almost any place on earth
+   */
+  const geocodeWithNominatim = async (query) => {
+    const url = `${NOMINATIM_URL}/search?q=${encodeURIComponent(query)}&format=json&limit=1&addressdetails=1&accept-language=en`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'SkyCast/1.0' } });
+    const data = await res.json();
+    if (!data || data.length === 0) return null;
+    const r = data[0];
+    const addr = r.address || {};
+    return {
+      name: addr.city || addr.town || addr.village || addr.hamlet || addr.county || addr.state || r.display_name.split(',')[0],
+      country_code: addr.country_code || '',
+      timezone: r.timezone || 'auto',
+      latitude: parseFloat(r.lat),
+      longitude: parseFloat(r.lon)
+    };
+  };
+
+  /**
+   * Geocode a location name to coordinates (Open-Meteo + Nominatim fallback)
    */
   const geocodeCity = async (city) => {
     if (!city || !city.trim()) {
       throw new Error('Please enter a city name to search');
     }
 
+    // Try Open-Meteo first
     const url = `${GEO_URL}/search?name=${encodeURIComponent(city.trim())}&count=1&language=en&format=json`;
-    const response = await fetch(url);
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+          return data.results[0];
+        }
+      }
+    } catch {}
 
-    if (!response.ok) {
-      throw new Error('Could not reach the weather service. Please try again.');
-    }
+    // Fallback to Nominatim (covers villages, hamlets, landmarks, etc.)
+    const fallback = await geocodeWithNominatim(city);
+    if (fallback) return fallback;
 
-    const data = await response.json();
-
-    if (!data.results || data.results.length === 0) {
-      throw new Error(`Hmm, we couldn't find "${city}". Double-check the spelling?`);
-    }
-
-    return data.results[0];
+    throw new Error(`Hmm, we couldn't find "${city}". Double-check the spelling?`);
   };
 
   /**
@@ -250,18 +291,41 @@ const API = (() => {
    */
   const searchCities = async (query) => {
     if (!query || query.length < 2) return [];
-    const url = `${GEO_URL}/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`;
+    const results = [];
+
+    // Open-Meteo suggestions
     try {
+      const url = `${GEO_URL}/search?name=${encodeURIComponent(query)}&count=8&language=en&format=json`;
       const res = await fetch(url);
       const data = await res.json();
-      return (data.results || []).map(r => ({
-        name: r.name,
-        country: r.country,
-        admin: r.admin1 || ''
-      }));
-    } catch {
-      return [];
-    }
+      if (data.results) {
+        data.results.forEach(r => results.push({
+          name: r.name,
+          country: r.country,
+          admin: r.admin1 || ''
+        }));
+      }
+    } catch {}
+
+    // Also fetch from Nominatim for small places Open-Meteo misses
+    try {
+      const url2 = `${NOMINATIM_URL}/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1&accept-language=en`;
+      const res2 = await fetch(url2, { headers: { 'User-Agent': 'SkyCast/1.0' } });
+      const data2 = await res2.json();
+      if (data2) {
+        data2.forEach(r => {
+          const addr = r.address || {};
+          const name = addr.city || addr.town || addr.village || addr.hamlet || addr.county || addr.state || r.display_name.split(',')[0];
+          const country = addr.country || '';
+          const admin = addr.state || addr.county || '';
+          if (!results.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
+            results.push({ name, country, admin });
+          }
+        });
+      }
+    } catch {}
+
+    return results.slice(0, 10);
   };
 
   /**
