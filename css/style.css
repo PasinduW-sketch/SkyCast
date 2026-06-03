@@ -237,8 +237,17 @@ img {
   padding-top: 16px;
   border-top: 1px solid var(--border-glass);
   text-align: center;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.sidebar-footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.sidebar-footer a:hover {
+  text-decoration: underline;
 }
 
 /* --- Main Content --- */
@@ -1127,19 +1136,48 @@ img {
 }
 
 /* --- Footer --- */
-.footer {
+.app-footer {
+  width: 100%;
+  padding: 20px 24px 80px;
   text-align: center;
-  padding: 16px 24px;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border-glass);
-  background: var(--bg-glass);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
-.footer a {
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+}
+
+.footer-link:hover {
   color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.footer-copy {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.footer-link svg {
+  flex-shrink: 0;
 }
 
 /* --- Responsive Design --- */
