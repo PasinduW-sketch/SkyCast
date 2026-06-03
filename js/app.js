@@ -43,7 +43,7 @@ const App = (() => {
     sunset: document.getElementById('sunset'),
     rainChance: document.getElementById('rainChance'),
     windDirection: document.getElementById('windDirection'),
-    visibility: document.getElementById('visibility'),
+    pressure: document.getElementById('pressure'),
     dashTemp: document.getElementById('dashTemp'),
     dashWind: document.getElementById('dashWind'),
     dashHumidity: document.getElementById('dashHumidity'),
@@ -322,10 +322,17 @@ const App = (() => {
     }
   };
 
+  const suggestFavorite = () => {
+    const name = state.currentCity;
+    if (!name || Storage.isFavorite(name)) return;
+    elements.favBtn.classList.add('pulse-ring');
+    setTimeout(() => elements.favBtn.classList.remove('pulse-ring'), 3000);
+    showToast(`\u2B50 Tap the star to save ${name} as a favorite`, 'success');
+  };
+
   const handleMapClick = async (e) => {
     const { lat, lng } = e.latlng;
     if (state.isFetching) return;
-    showToast('Loading weather for clicked location...', 'info');
     try {
       const cityName = await API.reverseGeocode(lat, lng);
       const name = cityName || 'My Location';
@@ -342,6 +349,7 @@ const App = (() => {
       showLocationBanner(name);
       if (state._marker) state._marker.setLatLng([lat, lng]).bindPopup(name).openPopup();
       if (state._map) state._map.setView([lat, lng], 10);
+      suggestFavorite();
     } catch {
       showToast('Could not get weather for this location', 'error');
     }
@@ -496,7 +504,7 @@ const App = (() => {
       elements.dashPressure.textContent = `${Math.round(main.pressure)} hPa`;
     }
     if (wind && wind.deg !== undefined) elements.windDirection.textContent = getWindDirection(wind.deg);
-    elements.visibility.textContent = '\u2014';
+    if (main && main.pressure) elements.pressure.textContent = `${Math.round(main.pressure)} hPa`;
   };
 
   const getWindDirection = (deg) => {
