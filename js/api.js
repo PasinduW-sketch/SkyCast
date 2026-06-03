@@ -273,6 +273,16 @@ const API = (() => {
   const searchCities = async (query) => {
     if (!query || query.length < 2) return [];
     const results = [];
+    const q = query.toLowerCase().trim();
+
+    // Matches from Sri Lanka local database (instant, no network)
+    SRI_LANKA_PLACES.forEach(p => {
+      if (p.k.some(key => key.includes(q))) {
+        if (!results.some(r => r.name.toLowerCase() === p.v.name.toLowerCase())) {
+          results.push({ name: p.v.name, country: 'Sri Lanka', admin: '' });
+        }
+      }
+    });
 
     // Open-Meteo suggestions
     try {
@@ -310,39 +320,249 @@ const API = (() => {
   };
 
   /**
-   * Sri Lanka city database for instant accurate results
+   * Sri Lanka comprehensive location database — all districts, towns, villages
    */
-  const SRI_LANKA_CITIES = {
-    'colombo': { lat: 6.9271, lon: 79.8612, name: 'Colombo' },
-    'kandy': { lat: 7.2906, lon: 80.6337, name: 'Kandy' },
-    'galle': { lat: 6.0535, lon: 80.2210, name: 'Galle' },
-    'jaffna': { lat: 9.6615, lon: 80.0255, name: 'Jaffna' },
-    'negombo': { lat: 7.2083, lon: 79.8358, name: 'Negombo' },
-    'anuradhapura': { lat: 8.3114, lon: 80.4037, name: 'Anuradhapura' },
-    'polonnaruwa': { lat: 7.9403, lon: 81.0188, name: 'Polonnaruwa' },
-    'trincomalee': { lat: 8.5874, lon: 81.2152, name: 'Trincomalee' },
-    'batticaloa': { lat: 7.7102, lon: 81.6924, name: 'Batticaloa' },
-    'matara': { lat: 5.9549, lon: 80.5550, name: 'Matara' },
-    'ratnapura': { lat: 6.7056, lon: 80.3848, name: 'Ratnapura' },
-    'badulla': { lat: 6.9934, lon: 81.0550, name: 'Badulla' },
-    'kurunegala': { lat: 7.4818, lon: 80.3623, name: 'Kurunegala' },
-    'matale': { lat: 7.4694, lon: 80.6233, name: 'Matale' },
-    'nuwara eliya': { lat: 6.9707, lon: 80.7829, name: 'Nuwara Eliya' },
-    'kegalle': { lat: 7.2523, lon: 80.3460, name: 'Kegalle' },
-    'kalutara': { lat: 6.5853, lon: 79.9607, name: 'Kalutara' },
-    'puttalam': { lat: 8.0412, lon: 79.8484, name: 'Puttalam' },
-    'gampaha': { lat: 7.0845, lon: 80.0098, name: 'Gampaha' },
-    'hambantota': { lat: 6.1429, lon: 81.1190, name: 'Hambantota' },
-    'mannar': { lat: 8.9825, lon: 79.9138, name: 'Mannar' },
-    'vavuniya': { lat: 8.7550, lon: 80.4975, name: 'Vavuniya' },
-    'kilinochchi': { lat: 9.3861, lon: 80.4090, name: 'Kilinochchi' },
-    'moratuwa': { lat: 6.7731, lon: 79.8825, name: 'Moratuwa' },
-    'mount lavinia': { lat: 6.8752, lon: 79.8671, name: 'Mount Lavinia' },
-    'dehiwala': { lat: 6.8532, lon: 79.8578, name: 'Dehiwala' },
-    'sri jayewardenepura': { lat: 6.8868, lon: 79.9187, name: 'Sri Jayewardenepura Kotte' }
-  };
+  const SRI_LANKA_PLACES = [
+    // Western Province
+    { k: ['colombo', 'kolamba'], v: { name: 'Colombo', lat: 6.9271, lon: 79.8612 } },
+    { k: ['dehiwala', 'dehiwala mount lavinia'], v: { name: 'Dehiwala', lat: 6.8532, lon: 79.8578 } },
+    { k: ['mount lavinia', 'mt lavinia'], v: { name: 'Mount Lavinia', lat: 6.8752, lon: 79.8671 } },
+    { k: ['moratuwa'], v: { name: 'Moratuwa', lat: 6.7731, lon: 79.8825 } },
+    { k: ['sri jayewardenepura', 'kotte', 'sri jayawardenepura'], v: { name: 'Sri Jayewardenepura Kotte', lat: 6.8868, lon: 79.9187 } },
+    { k: ['negombo', 'megomuwa'], v: { name: 'Negombo', lat: 7.2083, lon: 79.8358 } },
+    { k: ['gampaha'], v: { name: 'Gampaha', lat: 7.0845, lon: 80.0098 } },
+    { k: ['kalutara'], v: { name: 'Kalutara', lat: 6.5853, lon: 79.9607 } },
+    { k: ['battaramulla'], v: { name: 'Battaramulla', lat: 6.8984, lon: 79.9221 } },
+    { k: ['rathmalana', 'ratmalana'], v: { name: 'Ratmalana', lat: 6.8220, lon: 79.8777 } },
+    { k: ['nugegoda'], v: { name: 'Nugegoda', lat: 6.8625, lon: 79.8997 } },
+    { k: ['maharagama'], v: { name: 'Maharagama', lat: 6.8488, lon: 79.9143 } },
+    { k: ['boralesgamuwa'], v: { name: 'Boralesgamuwa', lat: 6.8346, lon: 79.8950 } },
+    { k: ['panadura'], v: { name: 'Panadura', lat: 6.7134, lon: 79.9039 } },
+    { k: ['jaela', 'ja-ela'], v: { name: 'Ja-Ela', lat: 7.0930, lon: 79.8920 } },
+    { k: ['kandana'], v: { name: 'Kandana', lat: 7.0530, lon: 79.8820 } },
+    { k: ['wattala'], v: { name: 'Wattala', lat: 6.9884, lon: 79.8899 } },
+    { k: ['kelaniya'], v: { name: 'Kelaniya', lat: 6.9553, lon: 79.9222 } },
+    { k: ['wellawatta', 'wellawaththa'], v: { name: 'Wellawatta', lat: 6.8744, lon: 79.8621 } },
+    { k: ['bambalapitiya'], v: { name: 'Bambalapitiya', lat: 6.8853, lon: 79.8575 } },
+    { k: ['kollupitiya', 'colpetty'], v: { name: 'Kollupitiya', lat: 6.8976, lon: 79.8525 } },
+    { k: ['slave island', 'kompani vidiya'], v: { name: 'Slave Island', lat: 6.9186, lon: 79.8470 } },
+    { k: ['horethuduwa'], v: { name: 'Horathuduwa', lat: 6.6500, lon: 79.9700 } },
+    { k: ['horana'], v: { name: 'Horana', lat: 6.7200, lon: 80.0600 } },
+    { k: ['ingiriya'], v: { name: 'Ingiriya', lat: 6.7300, lon: 80.1600 } },
+    { k: ['madampe', 'madampe western'], v: { name: 'Madampe', lat: 7.5000, lon: 79.8300 } },
+    { k: ['minuwangoda'], v: { name: 'Minuwangoda', lat: 7.1667, lon: 79.9583 } },
+    { k: ['veyangoda'], v: { name: 'Veyangoda', lat: 7.1500, lon: 80.0500 } },
+    { k: ['divulapitiya'], v: { name: 'Divulapitiya', lat: 7.2333, lon: 80.0000 } },
+    { k: ['meepe'], v: { name: 'Meepe', lat: 6.8200, lon: 80.0400 } },
+    { k: ['padukka'], v: { name: 'Padukka', lat: 6.8400, lon: 80.0800 } },
 
-  const getSriLankaCity = (name) => SRI_LANKA_CITIES[name.toLowerCase().trim()] || null;
+    // Central Province
+    { k: ['kandy', 'mahanuwara'], v: { name: 'Kandy', lat: 7.2906, lon: 80.6337 } },
+    { k: ['matale'], v: { name: 'Matale', lat: 7.4694, lon: 80.6233 } },
+    { k: ['nuwara eliya', 'nuwaraeliya'], v: { name: 'Nuwara Eliya', lat: 6.9707, lon: 80.7829 } },
+    { k: ['gampola'], v: { name: 'Gampola', lat: 7.1667, lon: 80.5667 } },
+    { k: ['nawalapitiya'], v: { name: 'Nawalapitiya', lat: 7.0500, lon: 80.5333 } },
+    { k: ['talawakelle'], v: { name: 'Talawakelle', lat: 6.9370, lon: 80.6570 } },
+    { k: ['hatton'], v: { name: 'Hatton', lat: 6.8990, lon: 80.5980 } },
+    { k: ['maskeliya'], v: { name: 'Maskeliya', lat: 6.8333, lon: 80.5667 } },
+    { k: ['kadugannawa'], v: { name: 'Kadugannawa', lat: 7.2667, lon: 80.5167 } },
+    { k: ['peradeniya'], v: { name: 'Peradeniya', lat: 7.2667, lon: 80.6000 } },
+    { k: ['wattegama', 'wattegama central'], v: { name: 'Wattegama', lat: 7.3500, lon: 80.6833 } },
+    { k: ['akurana'], v: { name: 'Akurana', lat: 7.3667, lon: 80.6167 } },
+    { k: ['katharagama', 'katagarama'], v: { name: 'Katharagama', lat: 6.8500, lon: 80.6500 } },
+    { k: ['digana'], v: { name: 'Digana', lat: 7.2833, lon: 80.7333 } },
+    { k: ['teldeniya'], v: { name: 'Teldeniya', lat: 7.3000, lon: 80.7667 } },
+    { k: ['dambulla'], v: { name: 'Dambulla', lat: 7.8600, lon: 80.6500 } },
+    { k: ['sigiriya'], v: { name: 'Sigiriya', lat: 7.9570, lon: 80.7600 } },
+    { k: ['habarana'], v: { name: 'Habarana', lat: 8.0436, lon: 80.7425 } },
+    { k: ['naula'], v: { name: 'Naula', lat: 7.7000, lon: 80.6500 } },
+    { k: ['ratthota'], v: { name: 'Rattota', lat: 7.5167, lon: 80.6667 } },
+    { k: ['wilgamuwa'], v: { name: 'Wilgamuwa', lat: 7.3500, lon: 80.8333 } },
+    { k: ['ambanpola'], v: { name: 'Ambanpola', lat: 7.9000, lon: 80.5000 } },
+    { k: ['lindula'], v: { name: 'Lindula', lat: 6.9167, lon: 80.6833 } },
+    { k: ['agarapathana', 'agrapatana'], v: { name: 'Agarapathana', lat: 6.8730, lon: 80.6900 } },
+    { k: ['nildandahinna'], v: { name: 'Nildandahinna', lat: 7.0000, lon: 80.8500 } },
+    { k: ['kothmale', 'kotmale'], v: { name: 'Kotmale', lat: 7.0000, lon: 80.6000 } },
+    { k: ['pundaluoya'], v: { name: 'Pundaluoya', lat: 6.9700, lon: 80.6600 } },
+
+    // Southern Province
+    { k: ['galle'], v: { name: 'Galle', lat: 6.0535, lon: 80.2210 } },
+    { k: ['matara'], v: { name: 'Matara', lat: 5.9549, lon: 80.5550 } },
+    { k: ['hambantota'], v: { name: 'Hambantota', lat: 6.1429, lon: 81.1190 } },
+    { k: ['bentota'], v: { name: 'Bentota', lat: 6.4260, lon: 80.0054 } },
+    { k: ['hikkaduwa'], v: { name: 'Hikkaduwa', lat: 6.1471, lon: 80.1011 } },
+    { k: ['unawatuna'], v: { name: 'Unawatuna', lat: 6.0186, lon: 80.2506 } },
+    { k: ['weligama'], v: { name: 'Weligama', lat: 5.9700, lon: 80.4200 } },
+    { k: ['mirissa'], v: { name: 'Mirissa', lat: 5.9460, lon: 80.4530 } },
+    { k: ['ahangama'], v: { name: 'Ahangama', lat: 5.9750, lon: 80.3625 } },
+    { k: ['koggala', 'koggala beach'], v: { name: 'Koggala', lat: 5.9900, lon: 80.3267 } },
+    { k: ['dikwella', 'dickwella'], v: { name: 'Dikwella', lat: 5.9667, lon: 80.6833 } },
+    { k: ['tanggalle', 'tangalla', 'tangalle'], v: { name: 'Tangalle', lat: 6.0333, lon: 80.7833 } },
+    { k: ['ambalangoda'], v: { name: 'Ambalangoda', lat: 6.2333, lon: 80.0500 } },
+    { k: ['balapitiya'], v: { name: 'Balapitiya', lat: 6.2667, lon: 80.0333 } },
+    { k: ['deniyaya'], v: { name: 'Deniyaya', lat: 6.3319, lon: 80.5583 } },
+    { k: ['eliyakanda', 'elliyakanda'], v: { name: 'Eliyakanda', lat: 6.0000, lon: 80.4000 } },
+    { k: ['hakmana'], v: { name: 'Hakmana', lat: 6.0833, lon: 80.6500 } },
+    { k: ['kamburupitiya'], v: { name: 'Kamburupitiya', lat: 6.0833, lon: 80.5500 } },
+    { k: ['akkaraipattu'], v: { name: 'Akkaraipattu', lat: 6.0500, lon: 80.4333 } },
+    { k: ['tissamaharama', 'tissa'], v: { name: 'Tissamaharama', lat: 6.2833, lon: 81.2833 } },
+    { k: ['kataragama'], v: { name: 'Kataragama', lat: 6.4167, lon: 81.3333 } },
+    { k: ['beliatta'], v: { name: 'Beliatta', lat: 6.0500, lon: 80.7333 } },
+    { k: ['urubokka', 'urubokke'], v: { name: 'Urubokka', lat: 6.3000, lon: 80.6333 } },
+    { k: ['alutgama', 'aluthgama'], v: { name: 'Aluthgama', lat: 6.4333, lon: 80.0000 } },
+    { k: ['hapitigala', 'haputugala'], v: { name: 'Hapitigala', lat: 6.2333, lon: 80.1500 } },
+
+    // Eastern Province
+    { k: ['trincomalee', 'trinco'], v: { name: 'Trincomalee', lat: 8.5874, lon: 81.2152 } },
+    { k: ['batticaloa', 'batti'], v: { name: 'Batticaloa', lat: 7.7102, lon: 81.6924 } },
+    { k: ['kalmunai'], v: { name: 'Kalmunai', lat: 7.4167, lon: 81.8167 } },
+    { k: ['ampara'], v: { name: 'Ampara', lat: 7.2874, lon: 81.6685 } },
+    { k: ['kinniya'], v: { name: 'Kinniya', lat: 8.4833, lon: 81.1833 } },
+    { k: ['muttur'], v: { name: 'Muttur', lat: 8.4000, lon: 81.2667 } },
+    { k: ['kantalai', 'kantale'], v: { name: 'Kantale', lat: 8.3667, lon: 81.0000 } },
+    { k: ['nilaveli'], v: { name: 'Nilaveli', lat: 8.6833, lon: 81.1833 } },
+    { k: ['uchchamunai'], v: { name: 'Uchchamunai', lat: 7.4500, lon: 81.7833 } },
+    { k: ['eravur'], v: { name: 'Eravur', lat: 7.7750, lon: 81.6000 } },
+    { k: ['kalkudah'], v: { name: 'Kalkudah', lat: 7.8833, lon: 81.5500 } },
+    { k: ['passikudah', 'pasikuda'], v: { name: 'Passikudah', lat: 7.9167, lon: 81.5333 } },
+    { k: ['valachchenai'], v: { name: 'Valachchenai', lat: 7.6333, lon: 81.7667 } },
+    { k: ['oddamavadi'], v: { name: 'Oddamavadi', lat: 7.4333, lon: 81.7333 } },
+    { k: ['pottuvil'], v: { name: 'Pottuvil', lat: 6.8833, lon: 81.8333 } },
+    { k: ['arugam bay'], v: { name: 'Arugam Bay', lat: 6.8500, lon: 81.8333 } },
+    { k: ['addalachchenai', 'addalaichenai'], v: { name: 'Addalachchenai', lat: 7.3000, lon: 81.7333 } },
+    { k: ['samanthurai', 'sammanthurai'], v: { name: 'Samanthurai', lat: 7.3667, lon: 81.7833 } },
+    { k: ['dehiattakandiya'], v: { name: 'Dehiattakandiya', lat: 7.5833, lon: 81.2333 } },
+    { k: ['maha oya'], v: { name: 'Maha Oya', lat: 7.5667, lon: 81.3667 } },
+    { k: ['damana'], v: { name: 'Damana', lat: 7.4167, lon: 81.6500 } },
+    { k: ['navithanveli'], v: { name: 'Navithanveli', lat: 7.5333, lon: 81.7000 } },
+    { k: ['chenkaladi'], v: { name: 'Chenkaladi', lat: 7.7500, lon: 81.6167 } },
+    { k: ['vakarai'], v: { name: 'Vakarai', lat: 8.1333, lon: 81.4333 } },
+
+    // Northern Province
+    { k: ['jaffna', 'yapanaya'], v: { name: 'Jaffna', lat: 9.6615, lon: 80.0255 } },
+    { k: ['mannar'], v: { name: 'Mannar', lat: 8.9825, lon: 79.9138 } },
+    { k: ['vavuniya'], v: { name: 'Vavuniya', lat: 8.7550, lon: 80.4975 } },
+    { k: ['kilinochchi'], v: { name: 'Kilinochchi', lat: 9.3861, lon: 80.4090 } },
+    { k: ['mullaitivu', 'mullaittivu', 'mullativu'], v: { name: 'Mullaitivu', lat: 9.2670, lon: 80.8140 } },
+    { k: ['point pedro'], v: { name: 'Point Pedro', lat: 9.8167, lon: 80.2333 } },
+    { k: ['chavakachcheri', 'chavakacheri'], v: { name: 'Chavakachcheri', lat: 9.6500, lon: 80.1500 } },
+    { k: ['tellippalai'], v: { name: 'Tellippalai', lat: 9.7833, lon: 80.0333 } },
+    { k: ['nallur'], v: { name: 'Nallur', lat: 9.6667, lon: 80.0333 } },
+    { k: ['kodikamam'], v: { name: 'Kodikamam', lat: 9.6000, lon: 80.1000 } },
+    { k: ['velanai', 'velanaitheevu'], v: { name: 'Velanai', lat: 9.6500, lon: 79.9000 } },
+    { k: ['karainagar'], v: { name: 'Karainagar', lat: 9.7333, lon: 79.8833 } },
+    { k: ['kayts'], v: { name: 'Kayts', lat: 9.6833, lon: 79.8667 } },
+    { k: ['punani'], v: { name: 'Punani', lat: 9.6333, lon: 80.0333 } },
+    { k: ['thalaimannar', 'talaimannar'], v: { name: 'Thalaimannar', lat: 9.1000, lon: 79.7167 } },
+    { k: ['madhu'], v: { name: 'Madhu', lat: 8.8500, lon: 80.2000 } },
+    { k: ['nedunkeni'], v: { name: 'Nedunkeni', lat: 9.0833, lon: 80.3000 } },
+    { k: ['oddisuddan'], v: { name: 'Oddusuddan', lat: 9.1167, lon: 80.3667 } },
+    { k: ['puliyankulam'], v: { name: 'Puliyankulam', lat: 8.9167, lon: 80.4333 } },
+    { k: ['mankulam'], v: { name: 'Mankulam', lat: 9.0833, lon: 80.4500 } },
+    { k: ['omanthai', 'omantai'], v: { name: 'Omantai', lat: 8.9500, lon: 80.5000 } },
+    { k: ['paraiyanakulam'], v: { name: 'Paraiyanakulam', lat: 8.7000, lon: 80.4833 } },
+    { k: ['cevvaipattu', 'chevaipattu'], v: { name: 'Cevvaipattu', lat: 9.6833, lon: 80.1167 } },
+    { k: ['pesalai'], v: { name: 'Pesalai', lat: 9.0500, lon: 79.8167 } },
+    { k: ['adampan'], v: { name: 'Adampan', lat: 8.9167, lon: 79.9333 } },
+    { k: ['nanattan', 'nanatan'], v: { name: 'Nanattan', lat: 8.9333, lon: 79.9833 } },
+
+    // North Western Province
+    { k: ['kurunegala'], v: { name: 'Kurunegala', lat: 7.4818, lon: 80.3623 } },
+    { k: ['puttalam'], v: { name: 'Puttalam', lat: 8.0412, lon: 79.8484 } },
+    { k: ['kuliyapitiya'], v: { name: 'Kuliyapitiya', lat: 7.4667, lon: 80.0500 } },
+    { k: ['nikaweratiya'], v: { name: 'Nikaweratiya', lat: 7.7500, lon: 80.1167 } },
+    { k: ['chilaw'], v: { name: 'Chilaw', lat: 7.5833, lon: 79.8000 } },
+    { k: ['wennappuwa'], v: { name: 'Wennappuwa', lat: 7.3500, lon: 79.8333 } },
+    { k: ['mawathagama'], v: { name: 'Mawathagama', lat: 7.4667, lon: 80.4833 } },
+    { k: ['nawagattegama'], v: { name: 'Nawagattegama', lat: 7.9500, lon: 80.0500 } },
+    { k: ['anamaduwa'], v: { name: 'Anamaduwa', lat: 7.8833, lon: 80.0000 } },
+    { k: ['kalpitiya'], v: { name: 'Kalpitiya', lat: 8.2333, lon: 79.7833 } },
+    { k: ['marawila'], v: { name: 'Marawila', lat: 7.4167, lon: 79.8333 } },
+    { k: ['dankotuwa'], v: { name: 'Dankotuwa', lat: 7.2833, lon: 79.8833 } },
+    { k: ['mundalama'], v: { name: 'Mundalama', lat: 8.1000, lon: 79.8333 } },
+    { k: ['narammala'], v: { name: 'Narammala', lat: 7.4333, lon: 80.2167 } },
+    { k: ['pannala'], v: { name: 'Pannala', lat: 7.3000, lon: 80.2167 } },
+    { k: ['maho', 'maho junction'], v: { name: 'Maho', lat: 7.8167, lon: 80.2667 } },
+    { k: ['galgamuwa'], v: { name: 'Galgamuwa', lat: 7.9833, lon: 80.2667 } },
+    { k: ['wariyapola'], v: { name: 'Wariyapola', lat: 7.6333, lon: 80.2333 } },
+    { k: ['bingiriya'], v: { name: 'Bingiriya', lat: 7.6000, lon: 80.0167 } },
+    { k: ['katuneriya', 'katana'], v: { name: 'Katuneriya', lat: 7.3333, lon: 79.8333 } },
+    { k: ['lumbe', 'lunuwila'], v: { name: 'Lunuwila', lat: 7.3500, lon: 79.8667 } },
+    { k: ['nattandiya'], v: { name: 'Nattandiya', lat: 7.4000, lon: 79.8667 } },
+
+    // North Central Province
+    { k: ['anuradhapura'], v: { name: 'Anuradhapura', lat: 8.3114, lon: 80.4037 } },
+    { k: ['polonnaruwa'], v: { name: 'Polonnaruwa', lat: 7.9403, lon: 81.0188 } },
+    { k: ['medawachchiya'], v: { name: 'Medawachchiya', lat: 8.5333, lon: 80.4667 } },
+    { k: ['tambuttegama'], v: { name: 'Tambuttegama', lat: 8.3000, lon: 80.4667 } },
+    { k: ['mihintale'], v: { name: 'Mihintale', lat: 8.3500, lon: 80.5000 } },
+    { k: ['horowpatana', 'horowpathana', 'horowpothana'], v: { name: 'Horowpathana', lat: 8.5167, lon: 80.8833 } },
+    { k: ['kebithigollewa'], v: { name: 'Kebithigollewa', lat: 8.5167, lon: 80.6667 } },
+    { k: ['kekirawa'], v: { name: 'Kekirawa', lat: 8.0333, lon: 80.6000 } },
+    { k: ['padaviya'], v: { name: 'Padaviya', lat: 8.8167, lon: 80.7333 } },
+    { k: ['galenbindunuwewa'], v: { name: 'Galenbindunuwewa', lat: 8.4333, lon: 80.8167 } },
+    { k: ['rajanganaya', 'rajangana'], v: { name: 'Rajanganaya', lat: 8.1667, lon: 80.3333 } },
+    { k: ['thirappane'], v: { name: 'Thirappane', lat: 8.2167, lon: 80.6833 } },
+    { k: ['hathanagoda'], v: { name: 'Hathanagoda', lat: 8.0500, lon: 80.5333 } },
+
+    // Uva Province
+    { k: ['badulla'], v: { name: 'Badulla', lat: 6.9934, lon: 81.0550 } },
+    { k: ['bandarawela'], v: { name: 'Bandarawela', lat: 6.8333, lon: 80.9833 } },
+    { k: ['ella'], v: { name: 'Ella', lat: 6.8667, lon: 81.0500 } },
+    { k: ['haputale'], v: { name: 'Haputale', lat: 6.7667, lon: 80.9667 } },
+    { k: ['diyatalawa', 'diyathalawa'], v: { name: 'Diyatalawa', lat: 6.8167, lon: 80.9667 } },
+    { k: ['wellawaya'], v: { name: 'Wellawaya', lat: 6.7333, lon: 81.1000 } },
+    { k: ['monaragala', 'moneragala'], v: { name: 'Monaragala', lat: 6.8667, lon: 81.3500 } },
+    { k: ['bibile'], v: { name: 'Bibile', lat: 7.1667, lon: 81.2167 } },
+    { k: ['mahiyanganaya'], v: { name: 'Mahiyanganaya', lat: 7.3333, lon: 81.0000 } },
+    { k: ['passara'], v: { name: 'Passara', lat: 6.9333, lon: 81.1500 } },
+    { k: ['lunugala'], v: { name: 'Lunugala', lat: 6.9667, lon: 81.1667 } },
+    { k: ['madderasinhala', 'madderasinha'], v: { name: 'Madderasinhala', lat: 6.9167, lon: 81.0500 } },
+    { k: ['kandeketiaya'], v: { name: 'Kandeketiya', lat: 6.9833, lon: 81.0667 } },
+    { k: ['telulla'], v: { name: 'Telulla', lat: 6.8667, lon: 81.1000 } },
+    { k: ['buttala'], v: { name: 'Buttala', lat: 6.7500, lon: 81.2667 } },
+    { k: ['tanamalwila', 'tanamalvila'], v: { name: 'Tanamalwila', lat: 6.4333, lon: 81.1333 } },
+    { k: ['siyambalanduwa'], v: { name: 'Siyambalanduwa', lat: 6.9167, lon: 81.5333 } },
+
+    // Sabaragamuwa Province
+    { k: ['ratnapura'], v: { name: 'Ratnapura', lat: 6.7056, lon: 80.3848 } },
+    { k: ['kegalle'], v: { name: 'Kegalle', lat: 7.2523, lon: 80.3460 } },
+    { k: ['balangoda'], v: { name: 'Balangoda', lat: 6.6500, lon: 80.6833 } },
+    { k: ['embilipitiya'], v: { name: 'Embilipitiya', lat: 6.3500, lon: 80.8500 } },
+    { k: ['awissawella'], v: { name: 'Awissawella', lat: 6.9500, lon: 80.2167 } },
+    { k: ['deraniyagala'], v: { name: 'Deraniyagala', lat: 6.9333, lon: 80.3333 } },
+    { k: ['galigamuwa'], v: { name: 'Galigamuwa', lat: 7.2000, lon: 80.3333 } },
+    { k: ['warakapola'], v: { name: 'Warakapola', lat: 7.2333, lon: 80.2000 } },
+    { k: ['mawanella'], v: { name: 'Mawanella', lat: 7.2500, lon: 80.4333 } },
+    { k: ['aranayake'], v: { name: 'Aranayake', lat: 7.1500, lon: 80.4500 } },
+    { k: ['dehiowita'], v: { name: 'Dehiowita', lat: 6.9833, lon: 80.2667 } },
+    { k: ['erathna'], v: { name: 'Erathna', lat: 6.7500, lon: 80.4333 } },
+    { k: ['kiriella'], v: { name: 'Kiriella', lat: 6.7500, lon: 80.3500 } },
+    { k: ['kolonna'], v: { name: 'Kolonna', lat: 6.4000, lon: 80.6833 } },
+    { k: ['kuruwita'], v: { name: 'Kuruwita', lat: 6.7833, lon: 80.3667 } },
+    { k: ['niwithigala'], v: { name: 'Niwithigala', lat: 6.5333, lon: 80.5000 } },
+    { k: ['pelmadulla'], v: { name: 'Pelmadulla', lat: 6.6167, lon: 80.5000 } },
+    { k: ['godakawela'], v: { name: 'Godakawela', lat: 6.5500, lon: 80.6500 } },
+    { k: ['kahawatta', 'kahawatte'], v: { name: 'Kahawatta', lat: 6.6000, lon: 80.5667 } },
+    { k: ['tholangamuwa'], v: { name: 'Tholangamuwa', lat: 7.0500, lon: 80.3000 } },
+    { k: ['ruwanwella'], v: { name: 'Ruwanwella', lat: 7.0500, lon: 80.3000 } },
+    { k: ['yatiyantota'], v: { name: 'Yatiyantota', lat: 7.0167, lon: 80.3000 } },
+
+    // Additional notable places
+    { k: ['kitulgala'], v: { name: 'Kitulgala', lat: 6.9920, lon: 80.4100 } },
+    { k: ['adam peak', 'sri pada', 'sripada'], v: { name: 'Adam\'s Peak', lat: 6.8167, lon: 80.5000 } },
+    { k: ['yala', 'yala national park'], v: { name: 'Yala', lat: 6.3724, lon: 81.5180 } },
+    { k: ['wilpattu', 'wilpattu national park'], v: { name: 'Wilpattu', lat: 8.4333, lon: 80.0000 } },
+    { k: ['sinharaja', 'sinharaja forest'], v: { name: 'Sinharaja', lat: 6.4167, lon: 80.4167 } },
+    { k: ['horton plains'], v: { name: 'Horton Plains', lat: 6.8167, lon: 80.8000 } },
+    { k: ['knuckles', 'knuckles range'], v: { name: 'Knuckles', lat: 7.3833, lon: 80.8500 } },
+    { k: ['pinnawala', 'pinnawala elephant'], v: { name: 'Pinnawala', lat: 7.3000, lon: 80.3833 } },
+  ];
+
+  const SRI_LANKA_LOOKUP = {};
+  SRI_LANKA_PLACES.forEach(p => p.k.forEach(key => { SRI_LANKA_LOOKUP[key.toLowerCase()] = p.v; }));
+
+  const getSriLankaCity = (name) => SRI_LANKA_LOOKUP[name.toLowerCase().trim()] || null;
 
   /**
    * Smart weather-based suggestions (what to wear, what to carry)
@@ -454,7 +674,6 @@ const API = (() => {
     searchCities,
     getFunnyError,
     getWeatherSuggestions,
-    getSriLankaCity,
-    SRI_LANKA_CITIES
+    getSriLankaCity
   };
 })();
