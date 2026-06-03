@@ -49,7 +49,7 @@ const App = (() => {
     dashHumidity: document.getElementById('dashHumidity'),
     dashUv: document.getElementById('dashUv'),
     dashPressure: document.getElementById('dashPressure'),
-    mapImage: document.getElementById('mapImage'),
+    mapContainer: document.getElementById('mapContainer'),
     locationBanner: document.getElementById('locationBanner'),
     locationText: document.getElementById('locationText'),
     locationChange: document.getElementById('locationChange'),
@@ -69,7 +69,9 @@ const App = (() => {
     isGeolocation: false,
     coords: null,
     timezone: 'auto',
-    suggestionsTimer: null
+    suggestionsTimer: null,
+    _map: null,
+    _marker: null
   };
 
   const fetchByCoords = async (lat, lon) => {
@@ -320,6 +322,24 @@ const App = (() => {
     }
   };
 
+  const initMap = (lat, lon, name) => {
+    const container = document.getElementById('map');
+    if (!container) return;
+    if (state._map) {
+      state._map.setView([lat, lon], 10);
+      if (state._marker) state._marker.setLatLng([lat, lon]).bindPopup(name);
+      state._map.invalidateSize();
+      return;
+    }
+    state._map = L.map('map', { zoomControl: true, attributionControl: true }).setView([lat, lon], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(state._map);
+    state._marker = L.marker([lat, lon]).addTo(state._map).bindPopup(name).openPopup();
+    setTimeout(() => state._map.invalidateSize(), 200);
+  };
+
   const renderWeather = (weatherData, forecastData) => {
     state.weatherData = weatherData;
     state.forecastData = forecastData;
@@ -365,9 +385,7 @@ const App = (() => {
 
     // Map
     if (weatherData.coord) {
-      const { lat, lon } = weatherData.coord;
-      elements.mapImage.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lon}&zoom=10&size=600x250&markers=${lat},${lon}`;
-      elements.mapImage.alt = `Map of ${weatherData.name}`;
+      initMap(weatherData.coord.lat, weatherData.coord.lon, weatherData.name);
     }
 
     setWeatherBackground(weather.icon, weather.main);
@@ -450,7 +468,6 @@ const App = (() => {
     if (daily && daily.precipitation_probability_max) elements.rainChance.textContent = `${daily.precipitation_probability_max[0]}%`;
     if (main && main.pressure) {
       elements.dashPressure.textContent = `${Math.round(main.pressure)} hPa`;
-      elements.pressure.textContent = `${Math.round(main.pressure)} hPa`;
     }
     if (wind && wind.deg !== undefined) elements.windDirection.textContent = getWindDirection(wind.deg);
     elements.visibility.textContent = '\u2014';

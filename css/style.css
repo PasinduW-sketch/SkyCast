@@ -1530,16 +1530,35 @@ button:focus-visible {
 
 .map-container {
   width: 100%;
-  height: 200px;
+  height: 220px;
   overflow: hidden;
   padding: 6px;
+  position: relative;
 }
 
-.map-image {
+.leaflet-map {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   border-radius: 18px;
+  z-index: 0;
+}
+
+.leaflet-container {
+  border-radius: 18px;
+  font-family: 'Inter', sans-serif;
+}
+
+[data-theme="dark"] .leaflet-layer {
+  filter: brightness(0.7) invert(1) hue-rotate(180deg);
+}
+
+[data-theme="dark"] .leaflet-control-attribution {
+  background: rgba(0,0,0,0.6) !important;
+  color: #ccc !important;
+}
+
+[data-theme="dark"] .leaflet-control-attribution a {
+  color: #6db3f2 !important;
 }
 
 /* --- Sidebar Tabs --- */
