@@ -97,25 +97,6 @@ const API = (() => {
   };
 
   /**
-   * Geocode using Nominatim (OSM) — covers almost any place on earth
-   */
-  const geocodeWithNominatim = async (query) => {
-    const url = `${NOMINATIM_URL}/search?q=${encodeURIComponent(query)}&format=json&limit=1&addressdetails=1&accept-language=en`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'SkyCast/1.0' } });
-    const data = await res.json();
-    if (!data || data.length === 0) return null;
-    const r = data[0];
-    const addr = r.address || {};
-    return {
-      name: addr.city || addr.town || addr.village || addr.hamlet || addr.county || addr.state || r.display_name.split(',')[0],
-      country_code: addr.country_code || '',
-      timezone: r.timezone || 'auto',
-      latitude: parseFloat(r.lat),
-      longitude: parseFloat(r.lon)
-    };
-  };
-
-  /**
    * Geocode a location name to coordinates (Open-Meteo + Nominatim fallback)
    */
   const geocodeCity = async (city) => {
@@ -329,6 +310,112 @@ const API = (() => {
   };
 
   /**
+   * Sri Lanka city database for instant accurate results
+   */
+  const SRI_LANKA_CITIES = {
+    'colombo': { lat: 6.9271, lon: 79.8612, name: 'Colombo' },
+    'kandy': { lat: 7.2906, lon: 80.6337, name: 'Kandy' },
+    'galle': { lat: 6.0535, lon: 80.2210, name: 'Galle' },
+    'jaffna': { lat: 9.6615, lon: 80.0255, name: 'Jaffna' },
+    'negombo': { lat: 7.2083, lon: 79.8358, name: 'Negombo' },
+    'anuradhapura': { lat: 8.3114, lon: 80.4037, name: 'Anuradhapura' },
+    'polonnaruwa': { lat: 7.9403, lon: 81.0188, name: 'Polonnaruwa' },
+    'trincomalee': { lat: 8.5874, lon: 81.2152, name: 'Trincomalee' },
+    'batticaloa': { lat: 7.7102, lon: 81.6924, name: 'Batticaloa' },
+    'matara': { lat: 5.9549, lon: 80.5550, name: 'Matara' },
+    'ratnapura': { lat: 6.7056, lon: 80.3848, name: 'Ratnapura' },
+    'badulla': { lat: 6.9934, lon: 81.0550, name: 'Badulla' },
+    'kurunegala': { lat: 7.4818, lon: 80.3623, name: 'Kurunegala' },
+    'matale': { lat: 7.4694, lon: 80.6233, name: 'Matale' },
+    'nuwara eliya': { lat: 6.9707, lon: 80.7829, name: 'Nuwara Eliya' },
+    'kegalle': { lat: 7.2523, lon: 80.3460, name: 'Kegalle' },
+    'kalutara': { lat: 6.5853, lon: 79.9607, name: 'Kalutara' },
+    'puttalam': { lat: 8.0412, lon: 79.8484, name: 'Puttalam' },
+    'gampaha': { lat: 7.0845, lon: 80.0098, name: 'Gampaha' },
+    'hambantota': { lat: 6.1429, lon: 81.1190, name: 'Hambantota' },
+    'mannar': { lat: 8.9825, lon: 79.9138, name: 'Mannar' },
+    'vavuniya': { lat: 8.7550, lon: 80.4975, name: 'Vavuniya' },
+    'kilinochchi': { lat: 9.3861, lon: 80.4090, name: 'Kilinochchi' },
+    'moratuwa': { lat: 6.7731, lon: 79.8825, name: 'Moratuwa' },
+    'mount lavinia': { lat: 6.8752, lon: 79.8671, name: 'Mount Lavinia' },
+    'dehiwala': { lat: 6.8532, lon: 79.8578, name: 'Dehiwala' },
+    'sri jayewardenepura': { lat: 6.8868, lon: 79.9187, name: 'Sri Jayewardenepura Kotte' }
+  };
+
+  const getSriLankaCity = (name) => SRI_LANKA_CITIES[name.toLowerCase().trim()] || null;
+
+  /**
+   * Smart weather-based suggestions (what to wear, what to carry)
+   */
+  const getWeatherSuggestions = (weatherData, forecastData) => {
+    const main = weatherData.main;
+    const weather = weatherData.weather[0];
+    const wind = weatherData.wind;
+    const temp = main.temp;
+    const feelsLike = main.feels_like;
+    const humidity = main.humidity;
+    const condition = (weather.main || '').toLowerCase();
+    const code = weather.id;
+    const isRain = condition.includes('rain') || condition.includes('drizzle') || condition.includes('thunderstorm') || [51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].includes(code);
+    const isSnow = condition.includes('snow') || [71,73,75,77,85,86].includes(code);
+    const isThunder = condition.includes('thunder') || [95,96,99].includes(code);
+    const isFog = condition.includes('fog') || condition.includes('mist') || condition.includes('haze') || [45,48].includes(code);
+    const cloudCover = weatherData.clouds?.all || 0;
+    const uv = forecastData?.daily?.uv_index_max?.[0] || 0;
+    const rainProb = forecastData?.daily?.precipitation_probability_max?.[0] || 0;
+    const windSpeed = wind?.speed || 0;
+    const suggestions = [];
+
+    // Temperature-based
+    if (temp >= 35) suggestions.push({ icon: '\uD83D\uDD25', text: 'Extreme heat! Stay indoors, avoid direct sun, drink plenty of water' });
+    else if (temp >= 30) suggestions.push({ icon: '\u2600\uFE0F', text: 'Very hot! Wear light cotton clothes, stay hydrated, use sunscreen' });
+    else if (temp >= 28) suggestions.push({ icon: '\uD83D\uDC60', text: 'Warm day. Light clothing, sunglasses, and flip-flops recommended' });
+    else if (temp >= 22) suggestions.push({ icon: '\uD83D\uDC54', text: 'Pleasant weather. A light t-shirt and jeans will be comfortable' });
+    else if (temp >= 16) suggestions.push({ icon: '\uD83E\uDD7A', text: 'Mild and cool. Bring a light jacket or hoodie' });
+    else if (temp >= 10) suggestions.push({ icon: '\uD83E\uDD7C', text: 'Chilly! Wear a sweater or warm jacket' });
+    else suggestions.push({ icon: '\uD83E\uDD76', text: 'Brr, cold! Bundle up with a heavy coat, scarf, and gloves' });
+
+    // Feels like difference
+    if (feelsLike && Math.abs(temp - feelsLike) > 3) {
+      if (feelsLike < temp) suggestions.push({ icon: '\uD83C\uDF2C\uFE0F', text: `Feels colder (${Math.round(feelsLike)}\u00B0) than actual temp — wind chill is real!` });
+      else suggestions.push({ icon: '\uD83D\uDCA8', text: `Feels warmer (${Math.round(feelsLike)}\u00B0) — humidity is making it muggy` });
+    }
+
+    // Rain
+    if (isRain || rainProb >= 50) {
+      if (rainProb >= 80) suggestions.push({ icon: '\u2614', text: 'Heavy rain expected! Definitely carry an umbrella and wear waterproof shoes' });
+      else if (rainProb >= 50) suggestions.push({ icon: '\u2614', text: `${rainProb}% chance of rain — better carry an umbrella just in case` });
+      else suggestions.push({ icon: '\u2602\uFE0F', text: 'Rain in the forecast. Grab your umbrella before heading out' });
+    }
+
+    if (isThunder) suggestions.push({ icon: '\u26A1', text: 'Thunderstorms! Stay indoors, avoid open areas, unplug electronics' });
+    if (isSnow) suggestions.push({ icon: '\u2744\uFE0F', text: 'Snowfall! Wear warm boots, a heavy coat, and drive carefully' });
+    if (isFog) suggestions.push({ icon: '\uD83C\uDF2B\uFE0F', text: 'Foggy out there. Drive with low beams and leave extra travel time' });
+
+    // Wind
+    if (windSpeed >= 15) suggestions.push({ icon: '\uD83D\uDCA8', text: 'Very windy! Secure loose items, avoid beach areas, hold onto your hat' });
+    else if (windSpeed >= 10) suggestions.push({ icon: '\uD83C\uDF2C\uFE0F', text: 'Windy conditions. Good day for kite flying, not so much for umbrellas' });
+
+    // UV
+    if (uv >= 8) suggestions.push({ icon: '\uD83D\uDD25', text: 'Extreme UV! Avoid going out between 11AM-3PM, SPF 50+ a must' });
+    else if (uv >= 6) suggestions.push({ icon: '\uD83D\uDC5F', text: 'High UV! Wear sunscreen, a hat, and sunglasses' });
+    else if (uv >= 3) suggestions.push({ icon: '\uD83D\uDC60', text: 'Moderate UV. Sunscreen recommended if you will be outside' });
+
+    // Humidity
+    if (humidity > 80) suggestions.push({ icon: '\uD83D\uDCA7', text: 'Very humid! Light breathable fabrics will help you stay comfortable' });
+
+    // Cloud cover
+    if (cloudCover > 80 && !isRain && !isSnow) suggestions.push({ icon: '\u2601\uFE0F', text: 'Overcast all day. A grey day — great for indoor activities' });
+
+    // Perfect weather
+    if (temp >= 20 && temp <= 28 && !isRain && uv < 6 && windSpeed < 8) {
+      suggestions.push({ icon: '\uD83C\uDF1E', text: 'Perfect weather! Go outside, enjoy the sun, have a picnic!' });
+    }
+
+    return suggestions.slice(0, 4);
+  };
+
+  /**
    * Generate a funny error message
    */
   const getFunnyError = (type) => {
@@ -365,6 +452,9 @@ const API = (() => {
     getFriendlyCondition,
     fetchWeatherData,
     searchCities,
-    getFunnyError
+    getFunnyError,
+    getWeatherSuggestions,
+    getSriLankaCity,
+    SRI_LANKA_CITIES
   };
 })();

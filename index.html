@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="SkyCast - A modern weather forecast web application providing real-time weather data and 5-day forecasts." />
+  <meta name="theme-color" content="#4a90d9" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="SkyCast" />
+  <link rel="manifest" href="manifest.json" />
   <title>SkyCast - Weather Forecast</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -160,7 +165,9 @@
 
           <!-- Current Weather Big Card -->
           <div class="current-weather glass" id="currentWeather">
-            <div class="current-weather-bg" id="weatherBg"></div>
+            <div class="current-weather-bg" id="weatherBg">
+              <div class="weather-animations" id="animateBg"></div>
+            </div>
             <div class="current-weather-content">
               <div class="current-weather-primary">
                 <div class="city-info">
@@ -218,6 +225,9 @@
               <div class="fav-carousel-inner"></div>
             </div>
           </div>
+
+          <!-- AI Suggestions -->
+          <div class="suggestions-box" id="suggestionsBox" style="display:none;"></div>
 
           <!-- Hourly Forecast -->
           <div class="hourly-section">

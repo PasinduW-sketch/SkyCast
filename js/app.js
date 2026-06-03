@@ -50,6 +50,8 @@ const App = (() => {
     dashUv: document.getElementById('dashUv'),
     dashPressure: document.getElementById('dashPressure'),
     mapContainer: document.getElementById('mapContainer'),
+    suggestionsBox: document.getElementById('suggestionsBox'),
+    animateBg: document.getElementById('animateBg'),
     locationBanner: document.getElementById('locationBanner'),
     locationText: document.getElementById('locationText'),
     locationChange: document.getElementById('locationChange'),
@@ -90,6 +92,10 @@ const App = (() => {
     updateDateTime();
     setInterval(updateDateTime, 1000);
     renderSidebar();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
 
     if (state.currentCity && state.currentCity !== 'Current Location') {
       fetchWeatherByCity(state.currentCity);
@@ -200,12 +206,14 @@ const App = (() => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    const city = elements.searchInput.value.trim();
+    let city = elements.searchInput.value.trim();
     if (!city) {
       showError(API.getFunnyError('empty'));
       return;
     }
     hideSuggestions();
+    const slCity = API.getSriLankaCity(city);
+    if (slCity) city = slCity.name;
     state.currentCity = city;
     state.isGeolocation = false;
     state.coords = null;
@@ -430,6 +438,7 @@ const App = (() => {
     renderHourly(forecastData);
     renderHighlights(weatherData, forecastData);
     renderFavCarousel();
+    renderSuggestionsAI(weatherData, forecastData);
     startLiveTime();
     updateDateTime();
   };
@@ -558,17 +567,22 @@ const App = (() => {
     }
   };
 
-  const setWeatherBackground = (icon, mainCondition) => {
+  const setWeatherBackground = (icon, mainCondition, weatherCode) => {
     const isNight = icon.endsWith('n');
     const condition = (mainCondition || '').toLowerCase();
     let bgClass = 'weather-bg-clear';
+    let animClass = '';
     if (isNight) bgClass = 'weather-bg-night';
-    else if (condition.includes('thunderstorm')) bgClass = 'weather-bg-thunderstorm';
-    else if (condition.includes('rain') || condition.includes('drizzle')) bgClass = condition.includes('drizzle') ? 'weather-bg-drizzle' : 'weather-bg-rain';
-    else if (condition.includes('snow')) bgClass = 'weather-bg-snow';
-    else if (condition.includes('cloud') || condition.includes('overcast')) bgClass = 'weather-bg-clouds';
-    else if (condition.includes('fog') || condition.includes('mist') || condition.includes('haze')) bgClass = 'weather-bg-mist';
+    else if (condition.includes('thunderstorm')) { bgClass = 'weather-bg-thunderstorm'; animClass = 'anim-thunder'; }
+    else if (condition.includes('rain') || condition.includes('drizzle')) { bgClass = condition.includes('drizzle') ? 'weather-bg-drizzle' : 'weather-bg-rain'; animClass = 'anim-rain'; }
+    else if (condition.includes('snow')) { bgClass = 'weather-bg-snow'; animClass = 'anim-snow'; }
+    else if (condition.includes('cloud') || condition.includes('overcast')) { bgClass = 'weather-bg-clouds'; animClass = 'anim-clouds'; }
+    else if (condition.includes('fog') || condition.includes('mist') || condition.includes('haze')) { bgClass = 'weather-bg-mist'; animClass = 'anim-fog'; }
+    else if (!isNight) animClass = 'anim-sun';
     elements.weatherBg.className = `current-weather-bg ${bgClass}`;
+    if (elements.animateBg) {
+      elements.animateBg.className = 'weather-animations ' + animClass;
+    }
   };
 
   const renderSidebar = () => {
@@ -676,6 +690,23 @@ const App = (() => {
         showToast(`Removed ${city} from favorites`, 'success');
       });
     });
+  };
+
+  const renderSuggestionsAI = (weatherData, forecastData) => {
+    if (!elements.suggestionsBox) return;
+    const suggestions = API.getWeatherSuggestions(weatherData, forecastData);
+    if (!suggestions || suggestions.length === 0) { elements.suggestionsBox.style.display = 'none'; return; }
+    elements.suggestionsBox.style.display = 'block';
+    elements.suggestionsBox.innerHTML = `
+      <h3 class="section-title">\uD83E\uDDD0 AI Suggestions</h3>
+      <div class="suggestions-grid">
+        ${suggestions.map(s => `
+          <div class="suggestion-card glass">
+            <span class="suggestion-icon">${s.icon}</span>
+            <span class="suggestion-text">${s.text}</span>
+          </div>
+        `).join('')}
+      </div>`;
   };
 
   const startAutoRefresh = () => {
