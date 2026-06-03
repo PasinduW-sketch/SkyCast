@@ -322,6 +322,31 @@ const App = (() => {
     }
   };
 
+  const handleMapClick = async (e) => {
+    const { lat, lng } = e.latlng;
+    if (state.isFetching) return;
+    showToast('Loading weather for clicked location...', 'info');
+    try {
+      const cityName = await API.reverseGeocode(lat, lng);
+      const name = cityName || 'My Location';
+      state.coords = { lat, lon: lng };
+      state.isGeolocation = true;
+      const { weatherData, forecastData } = await fetchByCoords(lat, lng);
+      weatherData.name = name;
+      state.currentCity = name;
+      Storage.saveLastCity(name);
+      Storage.addRecentCity(name, Math.round(weatherData.main.temp), weatherData.weather[0].icon);
+      Storage.saveOfflineData({ weather: weatherData, forecast: forecastData });
+      hideLoading();
+      renderWeather(weatherData, forecastData);
+      showLocationBanner(name);
+      if (state._marker) state._marker.setLatLng([lat, lng]).bindPopup(name).openPopup();
+      if (state._map) state._map.setView([lat, lng], 10);
+    } catch {
+      showToast('Could not get weather for this location', 'error');
+    }
+  };
+
   const initMap = (lat, lon, name) => {
     const container = document.getElementById('map');
     if (!container) return;
@@ -337,6 +362,7 @@ const App = (() => {
       attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(state._map);
     state._marker = L.marker([lat, lon]).addTo(state._map).bindPopup(name).openPopup();
+    state._map.on('click', handleMapClick);
     setTimeout(() => state._map.invalidateSize(), 200);
   };
 

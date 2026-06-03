@@ -1546,6 +1546,7 @@ button:focus-visible {
 .leaflet-container {
   border-radius: 18px;
   font-family: 'Inter', sans-serif;
+  cursor: crosshair;
 }
 
 [data-theme="dark"] .leaflet-layer {
