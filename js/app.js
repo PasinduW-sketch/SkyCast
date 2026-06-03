@@ -77,6 +77,7 @@ const App = (() => {
       API.getCurrentWeatherByCoords(lat, lon, state.unit),
       API.getForecastByCoords(lat, lon, state.unit)
     ]);
+    if (!w.name || w.name === 'Current Location') w.name = 'My Location';
     return { weatherData: w, forecastData: f };
   };
 
@@ -88,7 +89,7 @@ const App = (() => {
     setInterval(updateDateTime, 1000);
     renderSidebar();
 
-    if (state.currentCity) {
+    if (state.currentCity && state.currentCity !== 'Current Location') {
       fetchWeatherByCity(state.currentCity);
     } else {
       detectLocation();
@@ -255,10 +256,10 @@ const App = (() => {
           state.coords = { lat: latitude, lon: longitude };
           state.isGeolocation = true;
           const { weatherData, forecastData } = await fetchByCoords(latitude, longitude);
-          state.currentCity = weatherData.name || 'My Location';
+          state.currentCity = (weatherData.name && weatherData.name !== 'Current Location') ? weatherData.name : 'My Location';
           Storage.saveLastCity(state.currentCity);
           renderWeather(weatherData, forecastData);
-          showLocationBanner(weatherData.name);
+          showLocationBanner(state.currentCity);
         } catch (err) {
           showError(err.message);
         }
@@ -282,6 +283,10 @@ const App = (() => {
 
   const fetchWeatherByCity = async (city) => {
     if (state.isFetching) return;
+    if (!city || city === 'Current Location') {
+      if (!state.isGeolocation) detectLocation();
+      return;
+    }
     state.isFetching = true;
     showLoading();
     hideError();

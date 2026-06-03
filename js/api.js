@@ -191,7 +191,7 @@ const API = (() => {
     const cityName = await reverseGeocode(lat, lon);
 
     return {
-      name: cityName || 'Current Location',
+      name: cityName || '',
       country: '',
       sys: { country: '' },
       main: {
