@@ -158,9 +158,12 @@ const Storage = (() => {
   };
 
   // --- Favorites ---
+  const normalizeFav = (f) => typeof f === 'string' ? { name: f, temp: '', icon: '' } : f;
+
   const getFavorites = () => {
     try {
-      return JSON.parse(localStorage.getItem(KEYS.FAVORITES)) || [];
+      const raw = JSON.parse(localStorage.getItem(KEYS.FAVORITES)) || [];
+      return raw.map(normalizeFav);
     } catch { return []; }
   };
 
@@ -168,19 +171,25 @@ const Storage = (() => {
     try { localStorage.setItem(KEYS.FAVORITES, JSON.stringify(list)); } catch {}
   };
 
-  const addFavorite = (name) => {
+  const addFavorite = (name, temp = '', icon = '') => {
     const list = getFavorites();
-    if (list.some(c => c.toLowerCase() === name.toLowerCase())) return;
-    list.unshift(name);
+    if (list.some(c => c.name.toLowerCase() === name.toLowerCase())) return;
+    list.unshift({ name, temp, icon });
     if (list.length > MAX_FAVORITES) list.pop();
     saveFavorites(list);
   };
 
   const removeFavorite = (name) => {
-    saveFavorites(getFavorites().filter(c => c.toLowerCase() !== name.toLowerCase()));
+    saveFavorites(getFavorites().filter(c => c.name.toLowerCase() !== name.toLowerCase()));
   };
 
-  const isFavorite = (name) => getFavorites().some(c => c.toLowerCase() === name.toLowerCase());
+  const isFavorite = (name) => getFavorites().some(c => c.name.toLowerCase() === name.toLowerCase());
+
+  const updateFavoriteWeather = (name, temp, icon) => {
+    const list = getFavorites();
+    const idx = list.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
+    if (idx !== -1) { list[idx].temp = temp; list[idx].icon = icon; saveFavorites(list); }
+  };
 
   // --- Offline Cache ---
   const saveOfflineData = (data) => {
@@ -208,6 +217,7 @@ const Storage = (() => {
     addFavorite,
     removeFavorite,
     isFavorite,
+    updateFavoriteWeather,
     saveOfflineData,
     getOfflineData
   };

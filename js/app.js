@@ -408,6 +408,9 @@ const App = (() => {
 
     // Favorite button
     updateFavBtn();
+    if (state.currentCity) {
+      Storage.updateFavoriteWeather(state.currentCity, Math.round(main.temp), weather.icon);
+    }
 
     // Dashboard mini cards
     elements.dashTemp.textContent = `${Math.round(main.temp)}${unitSymbol}`;
@@ -426,6 +429,7 @@ const App = (() => {
     renderForecast(forecastData);
     renderHourly(forecastData);
     renderHighlights(weatherData, forecastData);
+    renderFavCarousel();
     startLiveTime();
     updateDateTime();
   };
@@ -532,13 +536,16 @@ const App = (() => {
       Storage.removeFavorite(name);
       showToast(`Removed ${name} from favorites`, 'success');
     } else {
-      Storage.addFavorite(name);
+      const temp = state.weatherData ? Math.round(state.weatherData.main.temp) : '';
+      const icon = state.weatherData ? state.weatherData.weather[0].icon : '';
+      Storage.addFavorite(name, temp, icon);
       showToast(`Added ${name} to favorites \u2B50`, 'success');
       elements.favBtn.classList.add('pop');
       setTimeout(() => elements.favBtn.classList.remove('pop'), 400);
     }
     updateFavBtn();
     renderSidebar();
+    renderFavCarousel();
   };
 
   const updateFavBtn = () => {
@@ -591,6 +598,7 @@ const App = (() => {
         });
         li.querySelector('.recent-item-remove').addEventListener('click', (e) => {
           e.stopPropagation(); Storage.removeRecentCity(city.name); renderSidebar();
+          renderFavCarousel();
         });
         elements.recentList.appendChild(li);
       });
@@ -602,24 +610,72 @@ const App = (() => {
     if (favs.length === 0) {
       elements.favList.innerHTML = '<li class="recent-item" style="cursor:default;justify-content:center;opacity:0.6">No favorites yet \u2B50</li>';
     } else {
-      favs.forEach(name => {
+      favs.forEach(fav => {
         const li = document.createElement('li');
         li.className = 'recent-item';
+        const iconUrl = fav.icon ? `https://openweathermap.org/img/wn/${fav.icon}.png` : '';
         li.innerHTML = `
-          <span class="recent-item-city">${name}</span>
-          <button class="recent-item-remove fav-remove" data-city="${name}" aria-label="Remove">&times;</button>`;
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${iconUrl ? `<img src="${iconUrl}" alt="" style="width:28px;height:28px;" loading="lazy" />` : '<span style="font-size:1.1rem">\u2B50</span>'}
+            <span class="recent-item-city">${fav.name}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="recent-item-temp">${fav.temp || ''}\u00B0</span>
+            <button class="recent-item-remove fav-remove" data-city="${fav.name}" aria-label="Remove">&times;</button>
+          </div>`;
         li.addEventListener('click', (e) => {
           if (e.target.classList.contains('fav-remove')) return;
-          state.currentCity = name; state.isGeolocation = false; state.coords = null; hideLocationBanner();
-          Storage.saveLastCity(name); fetchWeatherByCity(name); closeSidebar();
+          state.currentCity = fav.name; state.isGeolocation = false; state.coords = null; hideLocationBanner();
+          Storage.saveLastCity(fav.name); fetchWeatherByCity(fav.name); closeSidebar();
+          renderFavCarousel();
         });
         li.querySelector('.fav-remove').addEventListener('click', (e) => {
-          e.stopPropagation(); Storage.removeFavorite(name); renderSidebar();
-          if (state.currentCity === name) updateFavBtn();
+          e.stopPropagation(); Storage.removeFavorite(fav.name); renderSidebar(); renderFavCarousel();
+          if (state.currentCity === fav.name) updateFavBtn();
         });
         elements.favList.appendChild(li);
       });
     }
+  };
+
+  const renderFavCarousel = () => {
+    const container = document.getElementById('favCarousel');
+    if (!container) return;
+    const favs = Storage.getFavorites();
+    if (favs.length === 0) { container.style.display = 'none'; return; }
+    container.style.display = 'block';
+    const inner = container.querySelector('.fav-carousel-inner');
+    inner.innerHTML = favs.map(fav => {
+      const iconUrl = fav.icon ? `https://openweathermap.org/img/wn/${fav.icon}@2x.png` : '';
+      const isActive = state.currentCity && fav.name.toLowerCase() === state.currentCity.toLowerCase();
+      return `
+        <div class="fav-carousel-card glass${isActive ? ' active' : ''}" data-city="${fav.name}">
+          <button class="fav-carousel-remove" data-city="${fav.name}" aria-label="Remove">&times;</button>
+          ${iconUrl ? `<img class="fav-carousel-icon" src="${iconUrl}" alt="" loading="lazy" />` : '<div class="fav-carousel-icon" style="font-size:1.8rem;text-align:center">\u2B50</div>'}
+          <div class="fav-carousel-name">${fav.name}</div>
+          <div class="fav-carousel-temp">${fav.temp ? fav.temp + '\u00B0' : '--'}</div>
+        </div>`;
+    }).join('');
+
+    inner.querySelectorAll('.fav-carousel-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.classList.contains('fav-carousel-remove')) return;
+        const city = card.dataset.city;
+        state.currentCity = city; state.isGeolocation = false; state.coords = null; hideLocationBanner();
+        Storage.saveLastCity(city); fetchWeatherByCity(city);
+      });
+    });
+    inner.querySelectorAll('.fav-carousel-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const city = btn.dataset.city;
+        Storage.removeFavorite(city);
+        renderFavCarousel();
+        renderSidebar();
+        if (state.currentCity === city) updateFavBtn();
+        showToast(`Removed ${city} from favorites`, 'success');
+      });
+    });
   };
 
   const startAutoRefresh = () => {

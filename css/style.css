@@ -1248,6 +1248,20 @@ img {
   }
 }
 
+@media (max-width: 768px) {
+  .fav-carousel-card {
+    width: 110px;
+    padding: 12px 10px;
+  }
+  .fav-carousel-icon {
+    width: 40px;
+    height: 40px;
+  }
+  .fav-carousel-temp {
+    font-size: 1rem;
+  }
+}
+
 /* Small Mobile */
 @media (max-width: 480px) {
   .sidebar {
@@ -1532,6 +1546,123 @@ button:focus-visible {
   color: var(--text-muted);
   font-weight: 500;
   margin-top: 2px;
+}
+
+/* --- Favorites Carousel --- */
+.fav-carousel {
+  width: 100%;
+}
+
+.fav-carousel-scroll {
+  overflow-x: auto;
+  padding-bottom: 10px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scroll-snap-type: x mandatory;
+}
+
+.fav-carousel-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.fav-carousel-scroll::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 4px;
+}
+
+.fav-carousel-inner {
+  display: flex;
+  gap: 12px;
+  min-width: min-content;
+  padding: 4px 2px;
+}
+
+.fav-carousel-card {
+  flex-shrink: 0;
+  width: 130px;
+  padding: 16px 12px 14px;
+  text-align: center;
+  position: relative;
+  cursor: pointer;
+  scroll-snap-align: start;
+  animation: cardFadeIn 0.4s ease backwards;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.fav-carousel-card:nth-child(1) { animation-delay: 0s; }
+.fav-carousel-card:nth-child(2) { animation-delay: 0.05s; }
+.fav-carousel-card:nth-child(3) { animation-delay: 0.10s; }
+.fav-carousel-card:nth-child(4) { animation-delay: 0.15s; }
+.fav-carousel-card:nth-child(5) { animation-delay: 0.20s; }
+.fav-carousel-card:nth-child(6) { animation-delay: 0.25s; }
+.fav-carousel-card:nth-child(7) { animation-delay: 0.30s; }
+.fav-carousel-card:nth-child(8) { animation-delay: 0.35s; }
+
+.fav-carousel-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-hover);
+  background: var(--bg-glass-hover);
+}
+
+.fav-carousel-card.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 20px rgba(74, 144, 217, 0.15);
+}
+
+.fav-carousel-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-bottom: 4px;
+}
+
+.fav-carousel-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.fav-carousel-temp {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.fav-carousel-remove {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg-glass);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.2s;
+  border: 1px solid var(--border-glass);
+}
+
+.fav-carousel-card:hover .fav-carousel-remove {
+  opacity: 1;
+}
+
+.fav-carousel-remove:hover {
+  background: var(--error-bg);
+  color: var(--error-text);
 }
 
 /* --- Mini Map --- */
